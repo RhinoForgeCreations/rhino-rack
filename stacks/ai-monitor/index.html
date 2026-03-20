@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RHINO RACK Dashboard</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 1600px; height: 600px; overflow: hidden;
+  background: #060c18;
+  color: #e2e8f0;
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══ LAYOUT ═══ */
+#app { display: grid; grid-template-columns: 380px 840px 380px; height: 600px; }
+.panel {
+  height: 600px; overflow: hidden;
+  padding: 13px 14px;
+  display: flex; flex-direction: column;
+  border-right: 1px solid rgba(255,255,255,0.07);
+}
+.panel:last-child { border-right: none; }
+
+/* ═══ LEFT ═══ */
+.host-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-shrink: 0; }
+.host-dot { width: 11px; height: 11px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 10px #22c55e; animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.host-name { font-size: 22px; font-weight: 900; color: #f1f5f9; letter-spacing:.02em; }
+.host-ts { margin-left: auto; font-size: 11px; color: rgba(255,255,255,.4); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); padding: 2px 9px; border-radius: 99px; }
+
+/* Gauges */
+.gauges-row { display: flex; gap: 2px; flex-shrink: 0; margin-bottom: 7px; }
+.gauge-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; }
+.gauge-svg { width: 114px; height: 114px; overflow: visible; }
+.g-track { fill: none; stroke: #0d1f38; stroke-width: 11; }
+.g-fill { fill: none; stroke-width: 11; stroke-linecap: round; transition: stroke-dasharray .7s ease, stroke .4s ease; transform: rotate(-90deg); transform-origin: 57px 57px; }
+.g-val { font-size: 24px; font-weight: 900; fill: #f1f5f9; text-anchor: middle; dominant-baseline: middle; }
+.g-lbl { font-size: 10px; font-weight: 700; fill: rgba(255,255,255,.35); text-anchor: middle; letter-spacing:.12em; text-transform: uppercase; }
+
+/* Divider / section title */
+.hr { height: 1px; background: rgba(255,255,255,.08); margin: 5px 0; flex-shrink: 0; }
+.sec-title { font-size: 10px; font-weight: 700; letter-spacing:.14em; text-transform: uppercase; color: rgba(255,255,255,.3); margin-bottom: 5px; flex-shrink: 0; }
+
+/* Storage */
+.stor-list { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+.stor-item { display: flex; flex-direction: column; gap: 2px; }
+.stor-top { display: flex; align-items: baseline; gap: 7px; }
+.stor-icon { width: 14px; height: 14px; flex-shrink: 0; opacity: .55; }
+.stor-icon path, .stor-icon rect, .stor-icon circle { fill: currentColor; }
+.stor-name { font-size: 15px; font-weight: 800; color: #f1f5f9; }
+.stor-size { font-size: 12px; color: rgba(255,255,255,.45); margin-left: auto; }
+.stor-bottom { display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,.35); }
+.stor-pct { font-weight: 700; color: #94a3b8; font-size: 12px; }
+.stor-bar { height: 7px; background: rgba(255,255,255,.08); border-radius: 4px; overflow: hidden; }
+.stor-fill { height: 100%; border-radius: 4px; transition: width .7s ease; }
+.cb { background: #3b82f6; } .cg { background: #22c55e; } .cp { background: #a855f7; }
+.cc { background: #06b6d4; } .co { background: #f59e0b; } .cr { background: #ef4444; } .cy { background: #eab308; }
+.stor-unmounted { color: #f59e0b; }
+.stor-slot { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 6px; border: 1px dashed rgba(255,255,255,.1); border-radius: 6px; color: rgba(255,255,255,.18); font-size: 12px; }
+
+/* Network */
+.net-row { display: flex; gap: 8px; margin-top: 5px; flex-shrink: 0; }
+.net-card { flex: 1; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.09); border-radius: 9px; padding: 6px 10px; }
+.net-dir { font-size: 10px; color: rgba(255,255,255,.35); text-transform: uppercase; letter-spacing:.1em; }
+.net-val { font-size: 22px; font-weight: 900; color: #f1f5f9; line-height: 1.15; }
+.net-unit { font-size: 11px; color: rgba(255,255,255,.4); }
+.uptime-row { font-size: 12px; color: rgba(255,255,255,.3); margin-top: 5px; flex-shrink: 0; }
+.uptime-row span { color: rgba(255,255,255,.6); font-weight: 600; }
+
+/* ═══ CENTRE ═══ */
+#centre { padding: 13px 16px; }
+.centre-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 9px; flex-shrink: 0; }
+.d-label { font-size: 10px; font-weight: 700; letter-spacing:.14em; text-transform: uppercase; color: rgba(255,255,255,.3); }
+.d-count { font-size: 16px; font-weight: 700; color: #94a3b8; margin-top: 2px; }
+.clock-block { text-align: right; }
+.clock { font-size: 50px; font-weight: 900; color: #f1f5f9; line-height: 1; letter-spacing:.03em; font-variant-numeric: tabular-nums; }
+.clock-date { font-size: 13px; color: rgba(255,255,255,.4); margin-top: 2px; }
+
+/* Docker grid — 4 cols, fills remaining height */
+.docker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; flex: 1; min-height: 0; }
+
+/* Tile */
+.tile { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.09); border-radius: 13px; padding: 14px 14px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; overflow: hidden; position: relative; }
+.tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 13px 0 0 13px; }
+.tile.healthy::before  { background: #22c55e; }
+.tile.unhealthy::before { background: #ef4444; }
+.tile.starting::before  { background: #f59e0b; }
+.tile.exited::before    { background: rgba(255,255,255,.2); }
+
+/* Logo — dominant visual element */
+.tile-logo { width: 44px; height: 44px; fill: rgba(255,255,255,.9); flex-shrink: 0; }
+.tile.unhealthy .tile-logo { fill: rgba(239,68,68,.85); }
+.tile.exited    .tile-logo { fill: rgba(255,255,255,.3); }
+
+.tile-name { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.55); text-align: center; line-height: 1.1; }
+.tile-bottom { display: flex; align-items: center; gap: 6px; }
+.sdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sdot.green  { background: #22c55e; box-shadow: 0 0 6px #22c55e80; }
+.sdot.red    { background: #ef4444; }
+.sdot.yellow { background: #f59e0b; }
+.sdot.gray   { background: rgba(255,255,255,.2); }
+.tile-status { font-size: 11px; color: rgba(255,255,255,.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ═══ RIGHT: RACK AI JARVIS HUD ═══ */
+#right { padding: 10px 10px; display: flex; flex-direction: column; align-items: center; }
+
+/* HUD wrapper */
+.hud-wrap { position: relative; width: 280px; height: 280px; flex-shrink: 0; margin: 0 auto; will-change: transform; transform: translateZ(0); }
+.hud-svg { width: 280px; height: 280px; overflow: visible; }
+
+/* Ring animations */
+@keyframes hud-spin  { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@keyframes hud-rspin { from{transform:rotate(0deg)} to{transform:rotate(-360deg)} }
+@keyframes hud-scan  { from{transform:rotate(-90deg)} to{transform:rotate(270deg)} }
+@keyframes hud-blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+@keyframes hud-glow  { 0%,100%{opacity:.7} 50%{opacity:1} }
+
+.hud-ring1 { transform-origin: 140px 140px; animation: hud-spin 20s linear infinite; will-change: transform; }
+.hud-ring2 { transform-origin: 140px 140px; animation: hud-rspin 14s linear infinite; will-change: transform; }
+.hud-ring3 { transform-origin: 140px 140px; animation: hud-spin 9s linear infinite; will-change: transform; }
+.hud-scan-arm { transform-origin: 140px 140px; animation: hud-scan 6s linear infinite; will-change: transform; }
+
+/* Speed up when active */
+.hud-active .hud-ring1 { animation-duration: 5s; }
+.hud-active .hud-ring2 { animation-duration: 3.5s; }
+.hud-active .hud-ring3 { animation-duration: 2s; }
+.hud-active .hud-scan-arm { animation-duration: 1.5s; }
+
+/* Corner bracket overlays */
+.hud-br-tl,.hud-br-tr,.hud-br-bl,.hud-br-br {
+  position: absolute; width: 16px; height: 16px;
+  border-color: rgba(56,189,248,.6); border-style: solid;
+  animation: hud-blink 2.5s ease-in-out infinite;
+}
+.hud-br-tl { top: 8px; left: 8px; border-width: 2px 0 0 2px; }
+.hud-br-tr { top: 8px; right: 8px; border-width: 2px 2px 0 0; animation-delay: .6s; }
+.hud-br-bl { bottom: 8px; left: 8px; border-width: 0 0 2px 2px; animation-delay: 1.2s; }
+.hud-br-br { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; animation-delay: 1.8s; }
+
+/* Center text overlay */
+.hud-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.hud-brand {
+  font-size: 20px; font-weight: 900; letter-spacing: .2em;
+  color: #38bdf8; text-shadow: 0 0 14px rgba(56,189,248,.9);
+  animation: hud-glow 2.5s ease-in-out infinite;
+}
+.hud-sub { font-size: 8px; letter-spacing: .22em; color: rgba(56,189,248,.45); text-transform: uppercase; margin-top: 2px; }
+.hud-stat { font-size: 11px; color: rgba(56,189,248,.7); margin-top: 8px; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.hud-stat b { color: #38bdf8; }
+
+/* Status label */
+.rack-status {
+  font-size: 9px; letter-spacing: .15em; text-transform: uppercase;
+  color: rgba(56,189,248,.4); text-align: center; margin-top: 5px; flex-shrink: 0;
+}
+.rack-status.working { color: #38bdf8; animation: hud-blink .55s ease-in-out infinite; }
+
+/* RACK AI messages */
+.msgs-wrap { flex: 1; width: 100%; overflow: hidden; display: flex; flex-direction: column; gap: 5px; padding-top: 8px; min-height: 0; }
+.rack-msg {
+  background: rgba(56,189,248,.04);
+  border: 1px solid rgba(56,189,248,.1);
+  border-left: 2px solid rgba(56,189,248,.3);
+  border-radius: 0 6px 6px 0;
+  padding: 5px 10px; flex-shrink: 0;
+}
+.rack-msg.active {
+  background: rgba(56,189,248,.09);
+  border-color: rgba(56,189,248,.25);
+  border-left-color: #38bdf8;
+}
+.rack-msg-who { font-size: 9px; font-weight: 700; letter-spacing: .12em; color: rgba(56,189,248,.45); text-transform: uppercase; margin-bottom: 2px; }
+.rack-msg.active .rack-msg-who { color: #38bdf8; }
+.rack-msg-text { font-size: 12px; color: rgba(255,255,255,.7); line-height: 1.35; }
+.rack-msg.active .rack-msg-text { color: #e2e8f0; }
+</style>
+</head>
+<body>
+
+<!-- ══════ SVG LOGO LIBRARY (hidden) ══════ -->
+<svg style="display:none" aria-hidden="true">
+<defs>
+  <!-- Jellyfin -->
+  <symbol id="L-jellyfin" viewBox="0 0 24 24">
+    <path d="M12 .002C8.826.002-1.398 18.537.16 21.666c1.56 3.129 22.14 3.094 23.682 0C25.384 18.573 15.177 0 12 0zm7.76 18.949c-1.008 2.028-14.493 2.05-15.514 0C3.224 16.9 9.92 4.755 12.003 4.755c2.081 0 8.77 12.166 7.759 14.196zM12 9.198c-1.054 0-4.446 6.15-3.93 7.189.518 1.04 7.348 1.027 7.86 0 .511-1.027-2.874-7.19-3.93-7.19z"/>
+  </symbol>
+  <!-- Grafana -->
+  <symbol id="L-grafana" viewBox="0 0 24 24">
+    <path d="M23.02 10.59a8.578 8.578 0 0 0-.862-3.034 8.911 8.911 0 0 0-1.789-2.445c.337-1.342-.413-2.505-.413-2.505-1.292-.08-2.113.4-2.416.62-.052-.02-.102-.044-.154-.064-.22-.089-.446-.172-.677-.247-.231-.073-.47-.14-.711-.197a9.867 9.867 0 0 0-.875-.161C14.557.753 12.94 0 12.94 0c-1.804 1.145-2.147 2.744-2.147 2.744l-.018.093c-.098.029-.2.057-.298.088-.138.042-.275.094-.413.143-.138.055-.275.107-.41.166a8.869 8.869 0 0 0-1.557.87l-.063-.029c-2.497-.955-4.716.195-4.716.195-.203 2.658.996 4.33 1.235 4.636a11.608 11.608 0 0 0-.607 2.635C1.636 12.677.953 15.014.953 15.014c1.926 2.214 4.171 2.351 4.171 2.351.003-.002.006-.002.006-.005.285.509.615.994.986 1.446.156.19.32.371.488.548-.704 2.009.099 3.68.099 3.68 2.144.08 3.553-.937 3.849-1.173a9.784 9.784 0 0 0 3.164.501h.08l.055-.003.107-.002.103-.005.003.002c1.01 1.44 2.788 1.646 2.788 1.646 1.264-1.332 1.337-2.653 1.337-2.94v-.058c0-.02-.003-.039-.003-.06.265-.187.52-.387.758-.6a7.875 7.875 0 0 0 1.415-1.7c1.43.083 2.437-.885 2.437-.885-.236-1.49-1.085-2.216-1.264-2.354l-.018-.013-.016-.013a.217.217 0 0 1-.031-.02c.008-.092.016-.18.02-.27.011-.162.016-.323.016-.48v-.253l-.005-.098-.008-.135a1.891 1.891 0 0 0-.01-.13c-.003-.042-.008-.083-.013-.125l-.016-.124-.018-.122a6.215 6.215 0 0 0-2.032-3.73 6.015 6.015 0 0 0-3.222-1.46 6.292 6.292 0 0 0-.85-.048l-.107.002h-.063l-.044.003-.104.008a4.777 4.777 0 0 0-3.335 1.695c-.332.4-.592.84-.768 1.297a4.594 4.594 0 0 0-.312 1.817l.003.091c.005.055.007.11.013.164a3.615 3.615 0 0 0 .698 1.82 3.53 3.53 0 0 0 1.827 1.282c.33.098.66.14.971.137.039 0 .078 0 .114-.002l.063-.003c.02 0 .041-.003.062-.003.034-.002.065-.007.099-.01.007 0 .018-.003.028-.003l.031-.005.06-.008a1.18 1.18 0 0 0 .112-.02c.036-.008.072-.013.109-.024a2.634 2.634 0 0 0 .914-.415c.028-.02.056-.041.085-.065a.248.248 0 0 0 .039-.35.244.244 0 0 0-.309-.06l-.078.042c-.09.044-.184.083-.283.116a2.476 2.476 0 0 1-.475.096c-.028.003-.054.006-.083.006l-.083.002c-.026 0-.054 0-.08-.002l-.102-.006h-.012l-.024.006c-.016-.003-.031-.003-.044-.006-.031-.002-.06-.007-.091-.01a2.59 2.59 0 0 1-.724-.213 2.557 2.557 0 0 1-.667-.438 2.52 2.52 0 0 1-.805-1.475 2.306 2.306 0 0 1-.029-.444l.006-.122v-.023l.002-.031c.003-.021.003-.04.005-.06a3.163 3.163 0 0 1 1.352-2.29 3.12 3.12 0 0 1 .937-.43 2.946 2.946 0 0 1 .776-.101h.06l.07.002.045.003h.026l.07.005a4.041 4.041 0 0 1 1.635.49 3.94 3.94 0 0 1 1.602 1.662 3.77 3.77 0 0 1 .397 1.414l.005.076.003.075c.002.026.002.05.002.075 0 .024.003.052 0 .07v.065l-.002.073-.008.174a6.195 6.195 0 0 1-.08.639 5.1 5.1 0 0 1-.267.927 5.31 5.31 0 0 1-.624 1.13 5.052 5.052 0 0 1-3.237 2.014 4.82 4.82 0 0 1-.649.066l-.039.003h-.287a6.607 6.607 0 0 1-1.716-.265 6.776 6.776 0 0 1-3.4-2.274 6.75 6.75 0 0 1-.746-1.15 6.616 6.616 0 0 1-.714-2.596l-.005-.083-.002-.02v-.056l-.003-.073v-.096l-.003-.104v-.07l.003-.163c.008-.22.026-.45.054-.678a8.707 8.707 0 0 1 .28-1.355c.128-.444.286-.872.473-1.277a7.04 7.04 0 0 1 1.456-2.1 5.925 5.925 0 0 1 .953-.763c.169-.111.343-.213.524-.306.089-.05.182-.091.273-.135.047-.02.093-.042.138-.062a7.177 7.177 0 0 1 .714-.267l.145-.045c.049-.015.098-.026.148-.041.098-.029.197-.052.296-.076.049-.013.1-.02.15-.033l.15-.032.151-.028.076-.013.075-.01.153-.024c.057-.01.114-.013.171-.023l.169-.021c.036-.003.073-.008.106-.01l.073-.008.036-.003.042-.002c.057-.003.114-.008.171-.01l.086-.006h.023l.037-.003.145-.007a7.999 7.999 0 0 1 1.708.125 7.917 7.917 0 0 1 2.048.68 8.253 8.253 0 0 1 1.672 1.09l.09.077.089.078c.06.052.114.107.171.159.057.052.112.106.166.16.052.055.107.107.159.164a8.671 8.671 0 0 1 1.41 1.978c.012.026.028.052.04.078l.04.078.075.156c.023.051.05.1.07.153l.065.15a8.848 8.848 0 0 1 .45 1.34.19.19 0 0 0 .201.142.186.186 0 0 0 .172-.184c.01-.246.002-.532-.024-.856z"/>
+  </symbol>
+  <!-- n8n -->
+  <symbol id="L-n8n" viewBox="0 0 24 24">
+    <path d="M21.4737 5.6842c-1.1772 0-2.1663.8051-2.4468 1.8947h-2.8955c-1.235 0-2.289.893-2.492 2.111l-.1038.623a1.263 1.263 0 0 1-1.246 1.0555H11.289c-.2805-1.0896-1.2696-1.8947-2.4468-1.8947s-2.1663.8051-2.4467 1.8947H4.973c-.2805-1.0896-1.2696-1.8947-2.4468-1.8947C1.1311 9.4737 0 10.6047 0 12s1.131 2.5263 2.5263 2.5263c1.1772 0 2.1663-.8051 2.4468-1.8947h1.4223c.2804 1.0896 1.2696 1.8947 2.4467 1.8947 1.1772 0 2.1663-.8051 2.4468-1.8947h1.0008a1.263 1.263 0 0 1 1.2459 1.0555l.1038.623c.203 1.218 1.257 2.111 2.492 2.111h.3692c.2804 1.0895 1.2696 1.8947 2.4468 1.8947 1.3952 0 2.5263-1.131 2.5263-2.5263s-1.131-2.5263-2.5263-2.5263c-1.1772 0-2.1664.805-2.4468 1.8947h-.3692a1.263 1.263 0 0 1-1.246-1.0555l-.1037-.623A2.52 2.52 0 0 0 13.9607 12a2.52 2.52 0 0 0 .821-1.4794l.1038-.623a1.263 1.263 0 0 1 1.2459-1.0555h2.8955c.2805 1.0896 1.2696 1.8947 2.4468 1.8947 1.3952 0 2.5263-1.131 2.5263-2.5263s-1.131-2.5263-2.5263-2.5263m0 1.2632a1.263 1.263 0 0 1 1.2631 1.2631 1.263 1.263 0 0 1-1.2631 1.2632 1.263 1.263 0 0 1-1.2632-1.2632 1.263 1.263 0 0 1 1.2632-1.2631M2.5263 10.7368A1.263 1.263 0 0 1 3.7895 12a1.263 1.263 0 0 1-1.2632 1.2632A1.263 1.263 0 0 1 1.2632 12a1.263 1.263 0 0 1 1.2631-1.2632m6.3158 0A1.263 1.263 0 0 1 10.1053 12a1.263 1.263 0 0 1-1.2632 1.2632A1.263 1.263 0 0 1 7.579 12a1.263 1.263 0 0 1 1.2632-1.2632m10.1053 3.7895a1.263 1.263 0 0 1 1.2631 1.2632 1.263 1.263 0 0 1-1.2631 1.2631 1.263 1.263 0 0 1-1.2632-1.2631 1.263 1.263 0 0 1 1.2632-1.2632"/>
+  </symbol>
+  <!-- Portainer -->
+  <symbol id="L-portainer" viewBox="0 0 24 24">
+    <path d="M12.504 0v1.023l-.01-.015-6.106 3.526H3.417v.751h5.359v3.638h1.942V5.284h1.786v10.416c.027 0 .54-.01.751.091V5.285h.531v10.608c.293.147.55.312.751.54V5.286h6.046v-.75h-1.267l-6.061-3.5V0zm0 1.87v2.664H7.889zm.751.031l4.56 2.633h-4.56zM9.142 5.285h1.21v1.686h-1.21zm-4.736 2.73v1.951h1.942v-1.95zm2.19 0v1.951h1.941v-1.95zm-2.19 2.171v1.951h1.942v-1.95zm2.19 0v1.951h1.941v-1.95zm2.18 0v1.951h1.942v-1.95zM4.36 12.43a3.73 3.73 0 00-.494 1.851c0 1.227.604 2.308 1.52 2.986.239-.064.477-.1.724-.11.1 0 .165.01.266.019.284-1.191 1.383-1.988 2.665-1.988.724 0 1.438.201 1.924.668.229-.476.302-1.007.302-1.575 0-.65-.165-1.292-.494-1.85zm4.828 3.16c-1.21 0-2.226.844-2.492 1.97a.922.922 0 00-.275-.009 2.559 2.559 0 00-2.564 2.556 2.565 2.565 0 003.096 2.5A2.579 2.579 0 009.233 24c.862 0 1.622-.43 2.09-1.081a2.557 2.557 0 004.186-1.97c0-.567-.193-1.099-.504-1.52a2.557 2.557 0 00-3.866-2.94 2.574 2.574 0 00-1.951-.898z"/>
+  </symbol>
+  <!-- Pi-hole -->
+  <symbol id="L-pihole" viewBox="0 0 24 24">
+    <path d="M4.344 0c.238 4.792 3.256 7.056 6.252 7.376.165-1.692-4.319-5.6-4.319-5.6-.008-.011.009-.025.019-.014 0 0 4.648 4.01 5.423 5.645 2.762-.15 5.196-1.947 5-4.912 0 0-4.12-.613-5 4.618C11.48 2.753 8.993 0 4.344 0zM12 7.682v.002a3.68 3.68 0 0 0-2.591 1.077L4.94 13.227a3.683 3.683 0 0 0-.86 1.356 3.31 3.31 0 0 0-.237 1.255A3.681 3.681 0 0 0 4.92 18.45l4.464 4.466a3.69 3.69 0 0 0 2.251 1.06l.002.001c.093.01.187.015.28.017l-.1-.008c.06.003.117.009.177.009l-.077-.001L12 24l-.004-.005a3.68 3.68 0 0 0 2.61-1.077l4.469-4.465a3.683 3.683 0 0 0 1.006-1.888l.012-.063a3.682 3.682 0 0 0 .057-.541l.003-.061c0-.017.003-.05.004-.06h-.002a3.683 3.683 0 0 0-1.077-2.607l-4.466-4.468a3.694 3.694 0 0 0-1.564-.927l-.07-.02a3.43 3.43 0 0 0-.946-.133L12 7.682zm3.165 3.357c.023 1.748-1.33 3.078-1.33 4.806.164 2.227 1.733 3.207 3.266 3.146-.035.003-.068.007-.104.009-1.847.135-3.209-1.326-5.002-1.326-2.23.164-3.21 1.736-3.147 3.27l-.008-.104c-.133-1.847 1.328-3.21 1.328-5.002-.173-2.32-1.867-3.284-3.46-3.132.1-.011.203-.021.31-.027 1.847-.133 3.209 1.328 5.002 1.328 2.082-.155 3.074-1.536 3.145-2.968z"/>
+  </symbol>
+  <!-- Home Assistant -->
+  <symbol id="L-homeassistant" viewBox="0 0 24 24">
+    <path d="M22.939 10.627 13.061.749a1.505 1.505 0 0 0-2.121 0l-9.879 9.878C.478 11.21 0 12.363 0 13.187v9c0 .826.675 1.5 1.5 1.5h9.227l-4.063-4.062a2.034 2.034 0 0 1-.664.113c-1.13 0-2.05-.92-2.05-2.05s.92-2.05 2.05-2.05 2.05.92 2.05 2.05c0 .233-.041.456-.113.665l3.163 3.163V9.928a2.05 2.05 0 0 1-1.15-1.84c0-1.13.92-2.05 2.05-2.05s2.05.92 2.05 2.05a2.05 2.05 0 0 1-1.15 1.84v8.127l3.146-3.146A2.051 2.051 0 0 1 18 12.239c1.13 0 2.05.92 2.05 2.05s-.92 2.05-2.05 2.05c-.25 0-.488-.047-.709-.13L12.9 20.602v3.088h9.6c.825 0 1.5-.675 1.5-1.5v-9c0-.825-.477-1.977-1.061-2.561z"/>
+  </symbol>
+  <!-- Prometheus -->
+  <symbol id="L-prometheus" viewBox="0 0 24 24">
+    <path d="M12 0C5.373 0 0 5.372 0 12c0 6.627 5.373 12 12 12s12-5.373 12-12c0-6.628-5.373-12-12-12zm0 22.46c-1.885 0-3.414-1.26-3.414-2.814h6.828c0 1.553-1.528 2.813-3.414 2.813zm5.64-3.745H6.36v-2.046h11.28v2.046zm-.04-3.098H6.391c-.037-.043-.075-.086-.111-.13-1.155-1.401-1.427-2.133-1.69-2.879-.005-.025 1.4.287 2.395.511 0 0 .513.119 1.262.255-.72-.843-1.147-1.915-1.147-3.01 0-2.406 1.845-4.508 1.18-6.207.648.053 1.34 1.367 1.387 3.422.689-.951.977-2.69.977-3.755 0-1.103.727-2.385 1.454-2.429-.648 1.069.168 1.984.894 4.256.272.854.237 2.29.447 3.201.07-1.892.395-4.652 1.595-5.605-.529 1.2.079 2.702.494 3.424.671 1.164 1.078 2.047 1.078 3.716a4.642 4.642 0 01-1.11 2.996c.792-.149 1.34-.283 1.34-.283l2.573-.502s-.374 1.538-1.81 3.019z"/>
+  </symbol>
+  <!-- Uptime Kuma -->
+  <symbol id="L-uptimekuma" viewBox="0 0 24 24">
+    <path d="M11.759.955c-4.071 0-7.93 2.265-10.06 5.774l-.16.263-.116.284c-1.81 4.44-2.188 9.118.621 12.459 2.67 3.174 6.221 3.328 9.477 3.308 3.256-.02 6.323-.482 8.995-2.032C22.75 19.714 24 16.917 24 14.53c0-2.388-.724-4.698-1.882-7.343l-.112-.257-.148-.238C19.683 3.2 15.83.955 11.758.955Zm0 3.868c2.919 0 5.19 1.305 6.816 3.914 2.076 4.747 2.076 7.724 0 8.929-3.116 1.808-11.234 2.359-13.57-.42-1.558-1.853-1.558-4.69 0-8.51 1.584-2.608 3.835-3.913 6.754-3.913z"/>
+  </symbol>
+  <!-- Immich -->
+  <symbol id="L-immich" viewBox="0 0 24 24">
+    <path d="M11.9863.2695c-2.409 0-5.207 1.091-5.207 3.8946v.1523c1.3428.597 2.9347 1.6629 4.4121 2.9707 1.5713 1.3912 2.8374 2.8821 3.6524 4.2871 1.3997-2.5034 2.3358-5.4784 2.3476-7.373V4.164c0-2.8035-2.796-3.8946-5.205-3.8946m7.5117 4.4903c-.3778-.0081-.7747.0502-1.1914.1855-.0366.0118-.086.0278-.1445.0469-.1525 1.4611-.6756 3.304-1.4629 5.1133-.8373 1.9243-1.8627 3.5898-2.9472 4.7988 2.8132.558 5.9307.5273 7.7363-.0469.0126-.004.0246-.0065.0351-.0097 2.6665-.8666 2.84-3.8636 2.0957-6.1543-.6279-1.9332-2.081-3.89-4.121-3.9336m-14.996.039C2.4618 4.8424 1.0088 6.7973.3809 8.7305c-.7442 2.291-.5708 5.288 2.0957 6.1543l.1445.0468c.982-1.0926 2.4873-2.2761 4.1875-3.2773 1.8088-1.0646 3.619-1.808 5.207-2.1484-1.9483-2.1049-4.4884-3.9132-6.287-4.5098l-.0352-.0117c-.4167-.1354-.8136-.1936-1.1914-.1856m4.6718 6.7578c-2.6038 1.2025-5.1088 3.0598-6.2324 4.586l-.0215.0293c-1.6478 2.2683-.0272 4.7953 1.9219 6.211 1.9487 1.4159 4.8518 2.1765 6.5-.0919.0228-.0309.0536-.071.0898-.121-.7356-1.2717-1.396-3.0718-1.8222-4.9981-.4534-2.0492-.6023-4-.4356-5.6153m1.0723 3.338c.3387 2.8478 1.3315 5.8037 2.4355 7.3437l.0215.0293c1.6478 2.2683 4.551 1.5078 6.5.0918 1.9487-1.416 3.5697-3.943 1.9219-6.211-.0228-.0309-.0517-.073-.0879-.123-1.4367.3066-3.3522.3794-5.3164.1894-2.089-.2017-3.9895-.6623-5.4746-1.3203"/>
+  </symbol>
+  <!-- Anthropic (Claude) -->
+  <symbol id="L-claude" viewBox="0 0 24 24">
+    <path d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.5409Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z"/>
+  </symbol>
+  <!-- Watchtower (generic eye/watch icon) -->
+  <symbol id="L-watchtower" viewBox="0 0 24 24">
+    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+  </symbol>
+  <!-- Homarr (dashboard grid icon) -->
+  <symbol id="L-homarr" viewBox="0 0 24 24">
+    <path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8zM5 5v4h4V5H5zm0 10v4h4v-4H5zm10-10v4h4V5h-4zm0 10v4h4v-4h-4z"/>
+  </symbol>
+  <!-- Node Exporter (metrics/chart icon) -->
+  <symbol id="L-nodeexporter" viewBox="0 0 24 24">
+    <path d="M3.5 18.5l6-6 4 4L22 6.92 20.59 5.5l-7.09 8-4-4L2 17l1.5 1.5z"/>
+  </symbol>
+  <!-- Nextcloud -->
+  <symbol id="L-nextcloud" viewBox="0 0 24 24">
+    <path d="M12.018 6.537c-2.5 0-4.6 1.712-5.241 4.015-.56-1.232-1.793-2.105-3.225-2.105A3.569 3.569 0 0 0 0 12a3.569 3.569 0 0 0 3.552 3.553c1.432 0 2.664-.874 3.224-2.106.641 2.304 2.742 4.016 5.242 4.016 2.487 0 4.576-1.693 5.231-3.977.569 1.21 1.783 2.067 3.198 2.067A3.568 3.568 0 0 0 24 12a3.569 3.569 0 0 0-3.553-3.553c-1.416 0-2.63.858-3.199 2.067-.654-2.284-2.743-3.978-5.23-3.977zm0 2.085c1.878 0 3.378 1.5 3.378 3.378 0 1.878-1.5 3.378-3.378 3.378A3.362 3.362 0 0 1 8.641 12c0-1.878 1.5-3.378 3.377-3.378zm-8.466 1.91c.822 0 1.467.645 1.467 1.468s-.644 1.467-1.467 1.468A1.452 1.452 0 0 1 2.085 12c0-.823.644-1.467 1.467-1.467zm16.895 0c.823 0 1.468.645 1.468 1.468s-.645 1.468-1.468 1.468A1.452 1.452 0 0 1 18.98 12c0-.823.644-1.467 1.467-1.467z"/>
+  </symbol>
+  <!-- Docker -->
+  <symbol id="L-docker" viewBox="0 0 24 24">
+    <path d="M13.983 11.078h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.119a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 00.186-.186V3.574a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m0 2.716h2.118a.187.187 0 00.186-.186V6.29a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 00.184-.186V6.29a.185.185 0 00-.185-.185H8.1a.185.185 0 00-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 00.185-.186V6.29a.185.185 0 00-.185-.185H5.136a.186.186 0 00-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 00.185-.185V9.006a.185.185 0 00-.184-.186h-2.12a.186.186 0 00-.186.186v1.887c0 .102.084.185.186.185m-2.92 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.082.185.185.185M23.763 9.89c-.065-.051-.672-.51-1.954-.51-.338.001-.676.03-1.01.087-.248-1.7-1.653-2.53-1.716-2.566l-.344-.199-.226.327c-.284.438-.49.922-.612 1.43-.23.97-.09 1.882.403 2.661-.595.332-1.55.413-1.744.42H.751a.751.751 0 00-.75.748 11.376 11.376 0 00.692 4.062c.545 1.428 1.355 2.48 2.41 3.124 1.18.723 3.1 1.137 5.275 1.137.983.003 1.963-.086 2.93-.266a12.248 12.248 0 003.823-1.389c.98-.567 1.86-1.288 2.61-2.136 1.252-1.418 1.998-2.997 2.553-4.4h.221c1.372 0 2.215-.549 2.68-1.009.309-.293.55-.65.707-1.046l.098-.288Z"/>
+  </symbol>
+  <!-- Gitea -->
+  <symbol id="L-gitea" viewBox="0 0 24 24">
+    <path d="M4.209 4.603c-.247 0-.525.02-.84.088-.333.07-1.28.283-2.054 1.027C-.403 7.25.035 9.685.089 10.052c.065.446.263 1.687 1.21 2.768 1.749 2.141 5.513 2.092 5.513 2.092s.462 1.103 1.168 2.119c.955 1.263 1.936 2.248 2.89 2.367 2.406 0 7.212-.004 7.212-.004s.458.004 1.08-.394c.535-.324 1.013-.893 1.013-.893s.492-.527 1.18-1.73c.21-.37.385-.729.538-1.068 0 0 2.107-4.471 2.107-8.823-.042-1.318-.367-1.55-.443-1.627-.156-.156-.366-.153-.366-.153s-4.475.252-6.792.306c-.508.011-1.012.023-1.512.027v4.474l-.634-.301c0-1.39-.004-4.17-.004-4.17-1.107.016-3.405-.084-3.405-.084s-5.399-.27-5.987-.324c-.187-.011-.401-.032-.648-.032zm.354 1.832h.111s.271 2.269.6 3.597C5.549 11.147 6.22 13 6.22 13s-.996-.119-1.641-.348c-.99-.324-1.409-.714-1.409-.714s-.73-.511-1.096-1.52C1.444 8.73 2.021 7.7 2.021 7.7s.32-.859 1.47-1.145c.395-.106.863-.12 1.072-.12zm8.33 2.554c.26.003.509.127.509.127l.868.422-.529 1.075a.686.686 0 0 0-.614.359.685.685 0 0 0 .072.756l-.939 1.924a.69.69 0 0 0-.66.527.687.687 0 0 0 .347.763.686.686 0 0 0 .867-.206.688.688 0 0 0-.069-.882l.916-1.874a.667.667 0 0 0 .237-.02.657.657 0 0 0 .271-.137 8.826 8.826 0 0 1 1.016.512.761.761 0 0 1 .286.282c.073.21-.073.569-.073.569-.087.29-.702 1.55-.702 1.55a.692.692 0 0 0-.676.477.681.681 0 1 0 1.157-.252c.073-.141.141-.282.214-.431.19-.397.515-1.16.515-1.16.035-.066.218-.394.103-.814-.095-.435-.48-.638-.48-.638-.467-.301-1.116-.58-1.116-.58s0-.156-.042-.27a.688.688 0 0 0-.148-.241l.516-1.062 2.89 1.401s.48.218.583.619c.073.282-.019.534-.069.657-.24.587-2.1 4.317-2.1 4.317s-.232.554-.748.588a1.065 1.065 0 0 1-.393-.045l-.202-.08-4.31-2.1s-.417-.218-.49-.596c-.083-.31.104-.691.104-.691l2.073-4.272s.183-.37.466-.497a.855.855 0 0 1 .35-.077z"/>
+  </symbol>
+  <!-- WireGuard -->
+  <symbol id="L-wireguard" viewBox="0 0 24 24">
+    <path d="M23.98 11.645S24.533 0 11.735 0C.418 0 .064 11.17.064 11.17S-1.6 24 11.997 24C25.04 24 23.98 11.645 23.98 11.645zM8.155 7.576c2.4-1.47 5.469-.571 6.618 1.638.218.419.246 1.063.108 1.503-.477 1.516-1.601 2.366-3.145 2.728.455-.39.817-.832.933-1.442a2.112 2.112 0 0 0-.364-1.677 2.14 2.14 0 0 0-2.465-.75c-.95.36-1.47 1.228-1.377 2.294.087.99.839 1.632 2.245 1.876-.21.111-.372.193-.53.281a5.113 5.113 0 0 0-1.644 1.43c-.143.192-.24.208-.458.075-2.827-1.729-3.009-6.067.078-7.956z"/>
+  </symbol>
+  <!-- Redis -->
+  <symbol id="L-redis" viewBox="0 0 24 24">
+    <path d="M22.71 13.145c-1.66 2.092-3.452 4.483-7.038 4.483-3.203 0-4.397-2.825-4.48-5.12.701 1.484 2.073 2.685 4.214 2.63 4.117-.133 6.94-3.852 6.94-7.239 0-4.05-3.022-6.972-8.268-6.972-3.752 0-8.4 1.428-11.455 3.685C2.59 6.937 3.885 9.958 4.35 9.626c2.648-1.904 4.748-3.13 6.784-3.744C8.12 9.244.886 17.05 0 18.425c.1 1.261 1.66 4.648 2.424 4.648.232 0 .431-.133.664-.365a100.49 100.49 0 0 0 5.54-6.765c.222 3.104 1.748 6.898 6.014 6.898 3.819 0 7.604-2.756 9.33-8.965.2-.764-.73-1.361-1.261-.73zm-4.349-5.013c0 1.959-1.926 2.922-3.685 2.922-.941 0-1.664-.247-2.235-.568 1.051-1.592 2.092-3.225 3.21-4.973 1.972.334 2.71 1.43 2.71 2.619z"/>
+  </symbol>
+</defs>
+</svg>
+
+<div id="app">
+
+<!-- ═══════════════ LEFT: RPi Stats ═══════════════ -->
+<div class="panel" id="left">
+
+  <div class="host-row">
+    <div class="host-dot"></div>
+    <div class="host-name">RHINO RACK</div>
+    <div class="host-ts" id="ts-badge">tailscale</div>
+  </div>
+
+  <div class="gauges-row">
+    <div class="gauge-wrap">
+      <svg class="gauge-svg" viewBox="0 0 114 114">
+        <circle class="g-track" cx="57" cy="57" r="46"/>
+        <circle class="g-fill" id="gf-cpu" cx="57" cy="57" r="46" stroke="#3b82f6" stroke-dasharray="0 289.03"/>
+        <text class="g-val" id="gv-cpu" x="57" y="53">—</text>
+        <text class="g-lbl" x="57" y="72">CPU</text>
+      </svg>
+    </div>
+    <div class="gauge-wrap">
+      <svg class="gauge-svg" viewBox="0 0 114 114">
+        <circle class="g-track" cx="57" cy="57" r="46"/>
+        <circle class="g-fill" id="gf-ram" cx="57" cy="57" r="46" stroke="#22c55e" stroke-dasharray="0 289.03"/>
+        <text class="g-val" id="gv-ram" x="57" y="53">—</text>
+        <text class="g-lbl" x="57" y="72">RAM</text>
+      </svg>
+    </div>
+    <div class="gauge-wrap">
+      <svg class="gauge-svg" viewBox="0 0 114 114">
+        <circle class="g-track" cx="57" cy="57" r="46"/>
+        <circle class="g-fill" id="gf-temp" cx="57" cy="57" r="46" stroke="#22c55e" stroke-dasharray="0 289.03"/>
+        <text class="g-val" id="gv-temp" x="57" y="53">—</text>
+        <text class="g-lbl" x="57" y="72">TEMP °C</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="hr"></div>
+  <div class="sec-title">Storage</div>
+  <div class="stor-list" id="stor-list"></div>
+
+  <div class="hr" style="margin-top:6px"></div>
+
+  <div class="net-row">
+    <div class="net-card">
+      <div class="net-dir">↓ RX</div>
+      <div class="net-val" id="rx-val">—</div>
+      <div class="net-unit" id="rx-unit">KB/s</div>
+    </div>
+    <div class="net-card">
+      <div class="net-dir">↑ TX</div>
+      <div class="net-val" id="tx-val">—</div>
+      <div class="net-unit" id="tx-unit">KB/s</div>
+    </div>
+  </div>
+  <div class="uptime-row">up <span id="uptime-val">—</span></div>
+</div>
+
+<!-- ═══════════════ CENTRE: Docker ═══════════════ -->
+<div class="panel" id="centre">
+  <div class="centre-top">
+    <div>
+      <div class="d-label">Docker Containers</div>
+      <div class="d-count" id="d-count">loading…</div>
+    </div>
+    <div class="clock-block">
+      <div class="clock" id="clock">—</div>
+      <div class="clock-date" id="clock-date">—</div>
+    </div>
+  </div>
+  <div class="docker-grid" id="docker-grid"></div>
+
+  <!-- Pi-hole Stats Bar -->
+  <div id="pihole-bar" style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:10px;display:flex;align-items:center;gap:18px;flex-shrink:0;">
+    <svg viewBox="0 0 24 24" style="width:18px;height:18px;flex-shrink:0;opacity:.7"><use href="#L-pihole"/></svg>
+    <div style="display:flex;gap:18px;flex:1;font-size:12px;color:rgba(255,255,255,.6);">
+      <div><span style="color:#f87171;font-size:15px;font-weight:700;" id="ph-blocked">—</span> blocked</div>
+      <div><span style="color:rgba(255,255,255,.8);font-size:15px;font-weight:700;" id="ph-pct">—</span>%</div>
+      <div><span style="color:#38bdf8;font-size:15px;font-weight:700;" id="ph-total">—</span> queries</div>
+      <div><span style="color:#4ade80;font-size:15px;font-weight:700;" id="ph-cached">—</span> cached</div>
+      <div style="margin-left:auto;"><span style="color:rgba(255,255,255,.5);" id="ph-domains">—</span> domains blocked</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ RIGHT: RACK AI ═══════════════ -->
+<div class="panel" id="right">
+
+  <!-- JARVIS HUD -->
+  <div class="hud-wrap" id="hud-wrap">
+    <svg class="hud-svg" viewBox="0 0 280 280">
+      <!-- Outer dashed ring — slow CW -->
+      <g class="hud-ring1">
+        <circle cx="140" cy="140" r="128" fill="none" stroke="rgba(56,189,248,.18)" stroke-width="1" stroke-dasharray="5 9"/>
+      </g>
+      <!-- Mid ring — CCW with longer dashes -->
+      <g class="hud-ring2">
+        <circle cx="140" cy="140" r="111" fill="none" stroke="rgba(56,189,248,.28)" stroke-width="1.5" stroke-dasharray="18 8 3 8"/>
+      </g>
+      <!-- Inner ring — fast CW fine dashes -->
+      <g class="hud-ring3">
+        <circle cx="140" cy="140" r="96" fill="none" stroke="rgba(56,189,248,.2)" stroke-width="1" stroke-dasharray="2 12"/>
+      </g>
+      <!-- Cardinal tick marks -->
+      <g stroke="rgba(56,189,248,.4)" stroke-width="2" stroke-linecap="round">
+        <line x1="140" y1="10" x2="140" y2="22"/>
+        <line x1="270" y1="140" x2="258" y2="140"/>
+        <line x1="140" y1="270" x2="140" y2="258"/>
+        <line x1="10" y1="140" x2="22" y2="140"/>
+      </g>
+      <!-- 45° ticks -->
+      <g stroke="rgba(56,189,248,.2)" stroke-width="1" stroke-linecap="round">
+        <line x1="230" y1="50" x2="224" y2="56"/>
+        <line x1="50" y1="50" x2="56" y2="56"/>
+        <line x1="230" y1="230" x2="224" y2="224"/>
+        <line x1="50" y1="230" x2="56" y2="224"/>
+      </g>
+      <!-- Sweep sector fill -->
+      <g class="hud-scan-arm">
+        <path d="M140 140 L140 12 A128 128 0 0 1 252 196 Z" fill="rgba(56,189,248,.04)" stroke="none"/>
+      </g>
+      <!-- Sweep arm -->
+      <g class="hud-scan-arm">
+        <line x1="140" y1="140" x2="140" y2="12" stroke="rgba(56,189,248,.5)" stroke-width="1.5"/>
+        <circle cx="140" cy="12" r="3" fill="#38bdf8" opacity=".8"/>
+      </g>
+      <!-- Static base circles -->
+      <circle cx="140" cy="140" r="62" fill="rgba(56,189,248,.04)" stroke="rgba(56,189,248,.3)" stroke-width="1.5"/>
+      <circle cx="140" cy="140" r="50" fill="rgba(56,189,248,.06)" stroke="rgba(56,189,248,.15)" stroke-width="1"/>
+      <!-- Pulsing core (CSS only, no SVG animate) -->
+      <circle id="hud-core" cx="140" cy="140" r="9" fill="rgba(56,189,248,.35)" stroke="none"/>
+    </svg>
+
+    <!-- Corner brackets -->
+    <div class="hud-br-tl"></div>
+    <div class="hud-br-tr"></div>
+    <div class="hud-br-bl"></div>
+    <div class="hud-br-br"></div>
+
+    <!-- Centred labels -->
+    <div class="hud-center">
+      <div class="hud-brand">RACK AI</div>
+      <div class="hud-sub">RHINO RACK · ONLINE</div>
+      <div class="hud-stat">CPU <b id="hud-cpu">—</b> &nbsp;·&nbsp; <b id="hud-temp">—</b></div>
+    </div>
+  </div>
+
+  <div class="rack-status" id="rack-status">STANDBY · MONITORING SYSTEMS</div>
+
+  <!-- Natural-language action messages -->
+  <div class="msgs-wrap" id="msgs-wrap">
+    <div class="rack-msg">
+      <div class="rack-msg-who">RACK AI</div>
+      <div class="rack-msg-text" style="color:rgba(255,255,255,.25)">Awaiting activity…</div>
+    </div>
+  </div>
+
+</div>
+
+</div><!-- #app -->
+
+<script>
+// ═══ Gauge: r=46, circ=289.03 ═══
+const CIRC = 2 * Math.PI * 46;
+function setGauge(id, pct, color) {
+  const fill = Math.min(Math.max(pct,0),100) / 100 * CIRC;
+  const el = document.getElementById('gf-' + id);
+  el.setAttribute('stroke-dasharray', fill.toFixed(2) + ' ' + CIRC.toFixed(2));
+  el.setAttribute('stroke', color);
+}
+
+// ═══ Network ═══
+let prevRx=null, prevTx=null, prevT=null;
+function fmtSpeed(bps) {
+  if (bps >= 1048576) return { v:(bps/1048576).toFixed(2), u:'MB/s' };
+  if (bps >= 1024)    return { v:(bps/1024).toFixed(1),    u:'KB/s' };
+  return { v:bps.toFixed(0), u:'B/s' };
+}
+
+// ═══ Container registry with logo IDs ═══
+const CMAP = {
+  // service families — key is prefix or exact match
+  'jellyfin':              { logo:'L-jellyfin',     name:'Jellyfin' },
+  'grafana':               { logo:'L-grafana',      name:'Grafana' },
+  'n8n':                   { logo:'L-n8n',          name:'n8n' },
+  'portainer':             { logo:'L-portainer',    name:'Portainer' },
+  'portainer_ce':          { logo:'L-portainer',    name:'Portainer' },
+  'pihole':                { logo:'L-pihole',       name:'Pi-hole' },
+  'homeassistant':         { logo:'L-homeassistant',name:'Home Assist' },
+  'home-assistant':        { logo:'L-homeassistant',name:'Home Assist' },
+  'prometheus':            { logo:'L-prometheus',   name:'Prometheus' },
+  'uptime-kuma':           { logo:'L-uptimekuma',   name:'Uptime Kuma' },
+  'uptime_kuma':           { logo:'L-uptimekuma',   name:'Uptime Kuma' },
+  'immich':                { logo:'L-immich',       name:'Immich' },
+  'watchtower':            { logo:'L-watchtower',   name:'Watchtower' },
+  'homarr':                { logo:'L-homarr',       name:'Homarr' },
+  'node_exporter':         { logo:'L-nodeexporter', name:'Node Exp' },
+  'node-exporter':         { logo:'L-nodeexporter', name:'Node Exp' },
+  'vaultwarden':           { logo:'L-wireguard',    name:'Vaultwarden' },
+  'nextcloud':             { logo:'L-nextcloud',    name:'Nextcloud' },
+  'nextcloud-aio-mastercontainer': { logo:'L-nextcloud', name:'Nextcloud' },
+  'redis':                 { logo:'L-redis',        name:'Redis' },
+  'gitea':                 { logo:'L-gitea',        name:'Gitea' },
+  'wireguard':             { logo:'L-wireguard',    name:'WireGuard' },
+  'docker':                { logo:'L-docker',       name:'Docker' },
+  'portainer':             { logo:'L-portainer',    name:'Portainer' },
+  'claude-monitor':        { logo:'L-claude',       name:'Claude Mon' },
+  'claude_monitor':        { logo:'L-claude',       name:'Claude Mon' },
+};
+
+function cInfo(raw) {
+  if (!raw) return { logo:'L-homarr', name:'?' };
+  // Exact match
+  if (CMAP[raw]) return CMAP[raw];
+  // Prefix match (handles immich_server, immich_ml, etc.)
+  const lo = raw.toLowerCase();
+  for (const [k, v] of Object.entries(CMAP)) {
+    if (lo.startsWith(k.toLowerCase())) return v;
+    if (lo.replace(/[-_]/g,'').startsWith(k.toLowerCase().replace(/[-_]/g,''))) return v;
+  }
+  const seg = raw.split(/[-_]/)[0];
+  return { logo:'L-homarr', name: seg.charAt(0).toUpperCase() + seg.slice(1,12) };
+}
+
+// ═══ Container grouping: merge immich_* → single "Immich" tile ═══
+function groupContainers(containers) {
+  const groups = {};
+  const order = [];
+
+  for (const c of containers) {
+    const { name } = cInfo(c.name);
+    // Use the friendly name as the group key
+    if (!groups[name]) {
+      groups[name] = { ...c, _members: [c] };
+      order.push(name);
+    } else {
+      groups[name]._members.push(c);
+      // Worst-case status: unhealthy > exited > starting > healthy
+      const rank = s => {
+        const st = (s||'').toLowerCase();
+        if (st.includes('unhealthy')) return 4;
+        if (st.includes('exited') || st.includes('dead')) return 3;
+        if (st.includes('starting')) return 2;
+        if (st.startsWith('up')) return 1;
+        return 5;
+      };
+      if (rank(c.status) > rank(groups[name].status)) {
+        groups[name].status = c.status;
+      }
+    }
+  }
+  return order.map(k => groups[k]);
+}
+
+function cClass(status) {
+  if (!status) return 'exited';
+  const s = status.toLowerCase();
+  if (s.includes('unhealthy')) return 'unhealthy';
+  if (s.includes('starting') || s.includes('health: starting')) return 'starting';
+  if (s.startsWith('up')) return 'healthy';
+  return 'exited';
+}
+function sdotClass(cls) { return {healthy:'green',unhealthy:'red',starting:'yellow',exited:'gray'}[cls]||'gray'; }
+function cStatus(status) {
+  if (!status) return 'Stopped';
+  const s = status.toLowerCase();
+  if (s.includes('unhealthy')) return 'Unhealthy';
+  if (s.includes('(healthy)')) { const m=status.match(/Up ([\w ]+)\(/); return m ? 'Up '+m[1].trim() : 'Healthy'; }
+  if (s.startsWith('up')) { const m=status.match(/Up (.+)/i); return m ? 'Up '+m[1].split('(')[0].trim() : 'Running'; }
+  if (s.includes('exited')) { const m=status.match(/Exited \((\d+)\)/i); return m ? 'Exited ('+m[1]+')' : 'Exited'; }
+  return status.slice(0,20);
+}
+
+// ═══ Docker grid ═══
+function updateDockerGrid(rawContainers) {
+  const containers = groupContainers(rawContainers);
+  const up = containers.filter(c => (c.status||'').toLowerCase().startsWith('up')).length;
+  document.getElementById('d-count').textContent = up + ' / ' + containers.length + ' running';
+
+  const sorted = [...containers].sort((a,b) => {
+    const o = {healthy:0,starting:1,unhealthy:2,exited:3};
+    return (o[cClass(a.status)]||3)-(o[cClass(b.status)]||3) || (a.name||'').localeCompare(b.name||'');
+  });
+
+  document.getElementById('docker-grid').innerHTML = sorted.map(c => {
+    const cls = cClass(c.status);
+    const { logo, name } = cInfo(c.name);
+    const dot = sdotClass(cls);
+    return `<div class="tile ${cls}">
+      <svg class="tile-logo" viewBox="0 0 24 24"><use href="#${logo}"/></svg>
+      <div class="tile-name">${name}</div>
+      <div class="tile-bottom">
+        <div class="sdot ${dot}"></div>
+        <div class="tile-status">${cStatus(c.status)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══ Storage ═══
+function pctNum(s) { return parseInt((s||'0').replace('%',''))||0; }
+function barCls(pct, base) { return pct>85?'cr':pct>70?'co':base; }
+// SVG icons replacing emoji (emoji render as boxes on Pi Chromium)
+const ICO_SD  = `<svg class="stor-icon" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="8" y="2" width="2" height="4" rx="1"/><rect x="11" y="2" width="2" height="4" rx="1"/><rect x="14" y="2" width="2" height="4" rx="1"/></svg>`;
+const ICO_SSD = `<svg class="stor-icon" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5" y="10" width="6" height="4" rx="1"/><circle cx="17" cy="12" r="2"/></svg>`;
+const ICO_HDD = `<svg class="stor-icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="12" r="2.5"/><line x1="5" y1="9" x2="11" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="5" y1="12" x2="11" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+function storBar(pct, base) {
+  return `<div class="stor-bar"><div class="stor-fill ${barCls(pct,base)}" style="width:${pct}%"></div></div>`;
+}
+function renderStorage(sdcard, drives) {
+  let h = '';
+  const sdp = pctNum(sdcard.pct);
+  h += `<div class="stor-item">
+    <div class="stor-top">${ICO_SD}<span class="stor-name">SD Card</span><span class="stor-size">${sdcard.used||'?'} / ${sdcard.total||'?'}</span></div>
+    <div class="stor-bottom"><span>/dev/mmcblk0</span><span class="stor-pct">${sdcard.pct||'?'}</span></div>
+    ${storBar(sdp,'cb')}
+  </div>`;
+
+  const ssd = drives.find(d=>d.name==='sda');
+  if (ssd && ssd.mounted) {
+    const p=pctNum(ssd.pct);
+    const sm=ssd.smart||{};
+    const smartLine = sm.tempC!=null
+      ? `${sm.tempC}°C · Wear ${sm.wearPct||0}% · Spare ${sm.spareAvail!=null?sm.spareAvail:'?'}%${sm.mediaErrors?` · ⚠ ${sm.mediaErrors} err`:''}`
+      : '';
+    h += `<div class="stor-item">
+      <div class="stor-top">${ICO_SSD}<span class="stor-name">SSD</span><span class="stor-size">${ssd.used} / ${ssd.total}</span></div>
+      <div class="stor-bottom"><span>${ssd.model||'T7'} · ${ssd.sizeGB}GB</span><span class="stor-pct">${ssd.pct}</span></div>
+      ${smartLine?`<div style="font-size:10px;color:rgba(56,189,248,.55);margin-top:1px;padding-left:2px">${smartLine}</div>`:''}
+      ${storBar(p,'cg')}
+    </div>`;
+  } else if (ssd) {
+    h += `<div class="stor-item">
+      <div class="stor-top">${ICO_SSD}<span class="stor-name">SSD</span><span class="stor-size stor-unmounted">unmounted</span></div>
+      <div class="stor-bottom" style="color:rgba(255,255,255,.3)"><span>${ssd.model||'T7'} · ${ssd.sizeGB}GB</span><span>—</span></div>
+      ${storBar(0,'cg')}
+    </div>`;
+  } else {
+    h += `<div class="stor-slot">${ICO_SSD}<span>SSD — not detected</span></div>`;
+  }
+
+  const hddNames=['sdb','sdc','sdd','sde'], hddCols=['cp','cc','cy','co'];
+  for (let i=0;i<4;i++) {
+    const d=drives.find(dr=>dr.name===hddNames[i]);
+    if (d && d.mounted) {
+      const p=pctNum(d.pct);
+      h += `<div class="stor-item">
+        <div class="stor-top">${ICO_HDD}<span class="stor-name">HDD ${i+1}</span><span class="stor-size">${d.used} / ${d.total}</span></div>
+        <div class="stor-bottom"><span>${d.model||d.name} · ${d.sizeGB} GB</span><span class="stor-pct">${d.pct}</span></div>
+        ${storBar(p,hddCols[i])}
+      </div>`;
+    } else if (d) {
+      h += `<div class="stor-item">
+        <div class="stor-top">${ICO_HDD}<span class="stor-name">HDD ${i+1}</span><span class="stor-size stor-unmounted">unmounted</span></div>
+        <div class="stor-bottom" style="color:rgba(255,255,255,.3)"><span>${d.model||d.name}</span><span>—</span></div>
+        ${storBar(0,hddCols[i])}
+      </div>`;
+    } else {
+      h += `<div class="stor-slot">${ICO_HDD}<span>HDD ${i+1} — empty slot</span></div>`;
+    }
+  }
+  document.getElementById('stor-list').innerHTML = h;
+}
+
+// ═══ Stats polling ═══
+async function updateStats() {
+  try {
+    const d = await fetch('/api/stats').then(r=>r.json());
+
+    const cpu = parseFloat(d.cpu)||0;
+    setGauge('cpu', cpu, cpu>=90?'#ef4444':cpu>=70?'#f59e0b':'#3b82f6');
+    document.getElementById('gv-cpu').textContent = cpu.toFixed(0)+'%';
+
+    const rp = d.mem.total ? Math.round(d.mem.used/d.mem.total*100) : 0;
+    setGauge('ram', rp, rp>=90?'#ef4444':rp>=75?'#f59e0b':'#22c55e');
+    document.getElementById('gv-ram').textContent = rp+'%';
+
+    const t = parseFloat(d.temp)||0;
+    setGauge('temp', t, t>=75?'#ef4444':t>=60?'#f59e0b':'#22c55e');
+    document.getElementById('gv-temp').textContent = t.toFixed(1)+'°';
+
+    // HUD overlays
+    document.getElementById('hud-cpu').textContent = cpu.toFixed(0)+'%';
+    document.getElementById('hud-temp').textContent = t.toFixed(1)+'°C';
+
+    renderStorage(d.sdcard||{}, d.drives||[]);
+
+    const now = Date.now();
+    if (prevRx !== null) {
+      const dt = (now-prevT)/1000;
+      const rx=fmtSpeed(Math.max(0,(d.network.rxBytes-prevRx)/dt));
+      const tx=fmtSpeed(Math.max(0,(d.network.txBytes-prevTx)/dt));
+      document.getElementById('rx-val').textContent=rx.v; document.getElementById('rx-unit').textContent=rx.u;
+      document.getElementById('tx-val').textContent=tx.v; document.getElementById('tx-unit').textContent=tx.u;
+    }
+    prevRx=d.network.rxBytes; prevTx=d.network.txBytes; prevT=now;
+
+    document.getElementById('uptime-val').textContent = d.uptime||'—';
+    document.getElementById('ts-badge').textContent = d.tailscale?.active ? 'tailscale ✓' : 'tailscale';
+    updateDockerGrid(d.containers||[]);
+
+    // Pi-hole
+    const ph = d.pihole;
+    if (ph) {
+      document.getElementById('ph-blocked').textContent = ph.blocked.toLocaleString();
+      document.getElementById('ph-pct').textContent = ph.pctBlocked;
+      document.getElementById('ph-total').textContent = ph.total.toLocaleString();
+      document.getElementById('ph-cached').textContent = ph.cached.toLocaleString();
+      document.getElementById('ph-domains').textContent = ph.domains.toLocaleString();
+    }
+  } catch(e) { console.error(e); }
+}
+
+// ═══ Clock ═══
+function tick() {
+  const n=new Date(), p=x=>('0'+x).slice(-2);
+  document.getElementById('clock').textContent=p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());
+  const D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('clock-date').textContent=D[n.getDay()]+' '+n.getDate()+' '+M[n.getMonth()]+' '+n.getFullYear();
+}
+
+// ═══ RACK AI HUD ═══
+let workingTimer = null;
+const hudWrap = document.getElementById('hud-wrap');
+const rackStatus = document.getElementById('rack-status');
+
+function setWorking(on) {
+  if (on) {
+    hudWrap.classList.add('hud-active');
+    rackStatus.textContent = 'ACTIVE · PROCESSING';
+    rackStatus.classList.add('working');
+  } else {
+    hudWrap.classList.remove('hud-active');
+    rackStatus.textContent = 'STANDBY · MONITORING SYSTEMS';
+    rackStatus.classList.remove('working');
+  }
+}
+function triggerWorking() {
+  setWorking(true);
+  clearTimeout(workingTimer);
+  workingTimer = setTimeout(() => setWorking(false), 4000);
+}
+
+// ═══ RACK AI Messages ═══
+const MAX_FEED = 50;
+let feed = [];
+
+const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function fmtTs(ts) {
+  if(!ts) return '';
+  try { const d=new Date(ts); return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+  catch { return ''; }
+}
+
+function toNaturalMsg(ev) {
+  const tool = (ev.tool||'');
+  const preview = esc((ev.preview||'').slice(0,70));
+  const type = (ev.type||'').toLowerCase();
+  const t = tool.toLowerCase();
+  if (type.includes('posttool')) {
+    if (t.includes('bash'))    return preview ? `Command returned: ${preview}` : 'Command complete';
+    if (t.includes('edit'))    return preview ? `Edited: ${preview}` : 'File edit applied';
+    if (t.includes('write'))   return preview ? `Written: ${preview}` : 'File written';
+    if (t.includes('read'))    return preview ? `Read: ${preview}` : 'File loaded';
+    if (t.includes('grep'))    return `Search complete${preview ? ' — ' + preview : ''}`;
+    if (t.includes('glob'))    return `Files located${preview ? ' — ' + preview : ''}`;
+    if (t.includes('web'))     return `Web response received`;
+    if (t.includes('agent'))   return `Sub-agent task complete`;
+    return preview ? `Done — ${preview}` : `${tool} complete`;
+  }
+  if (type.includes('stop'))        return 'Session ended — standing by';
+  if (type.includes('notification')) return preview ? `Notification: ${preview}` : 'System notification';
+  // PreToolUse
+  if (t.includes('bash'))    return preview ? `Running: ${preview}` : 'Executing command';
+  if (t.includes('edit'))    return preview ? `Editing: ${preview}` : 'Editing file';
+  if (t.includes('write'))   return preview ? `Writing: ${preview}` : 'Writing file';
+  if (t.includes('read'))    return preview ? `Reading: ${preview}` : 'Reading file';
+  if (t.includes('grep'))    return preview ? `Searching for: ${preview}` : 'Searching codebase';
+  if (t.includes('glob'))    return preview ? `Scanning: ${preview}` : 'Scanning files';
+  if (t.includes('websearch')) return preview ? `Web search: ${preview}` : 'Searching the web';
+  if (t.includes('webfetch')) return preview ? `Fetching: ${preview}` : 'Fetching page';
+  if (t.includes('agent'))   return preview ? `Launching agent: ${preview}` : 'Spawning sub-agent';
+  if (t.includes('task'))    return preview ? `Task: ${preview}` : 'Managing task';
+  return preview ? `${tool}: ${preview}` : tool || ev.type;
+}
+
+function renderMsgs() {
+  const wrap = document.getElementById('msgs-wrap');
+  if (!feed.length) {
+    wrap.innerHTML = '<div class="rack-msg"><div class="rack-msg-who">RACK AI</div><div class="rack-msg-text" style="color:rgba(255,255,255,.25)">Awaiting activity…</div></div>';
+    return;
+  }
+  const recent = [...feed].slice(-5).reverse();
+  wrap.innerHTML = recent.map((ev, i) => {
+    const msg = toNaturalMsg(ev);
+    const time = fmtTs(ev.ts);
+    return `<div class="rack-msg${i===0?' active':''}">
+      <div class="rack-msg-who">RACK AI <span style="font-weight:400;opacity:.45">${time}</span></div>
+      <div class="rack-msg-text">${msg}</div>
+    </div>`;
+  }).join('');
+}
+
+function addFeed(ev) {
+  feed.push(ev);
+  if (feed.length > MAX_FEED) feed.shift();
+  if ((ev.type||'').toLowerCase().includes('pretool')) triggerWorking();
+  renderMsgs();
+}
+
+// ═══ SSE ═══
+function connectSSE() {
+  const es = new EventSource('/api/events');
+  es.addEventListener('history', e => {
+    try { feed = JSON.parse(e.data).slice(-MAX_FEED); renderMsgs(); } catch(_) {}
+  });
+  es.addEventListener('activity', e => {
+    try { addFeed(JSON.parse(e.data)); } catch(_) {}
+  });
+  es.onerror = () => { es.close(); setTimeout(connectSSE, 5000); };
+}
+
+// ═══ Boot ═══
+tick(); setInterval(tick,1000);
+updateStats(); setInterval(updateStats,3000);
+connectSSE();
+</script>
+</body>
+</html>

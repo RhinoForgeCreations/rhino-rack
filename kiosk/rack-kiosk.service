@@ -1,0 +1,18 @@
+[Unit]
+Description=Rack Dashboard Kiosk (1600x600)
+After=network.target ai-monitor.service
+Requires=ai-monitor.service
+
+[Service]
+# Runs as root — required for Xorg on VT1 (physical console) on Debian Bookworm.
+# The traditional Xwrapper.config workaround does not work on Bookworm.
+User=root
+Environment=DISPLAY=:0
+Environment=HOME=/root
+Environment=XAUTHORITY=/root/.Xauthority
+ExecStart=/usr/bin/xinit /home/YOUR_USER/.xinitrc -- /usr/bin/Xorg :0 -nolisten tcp vt1
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

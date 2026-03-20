@@ -1,0 +1,20 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      TZ: ${TZ:-UTC}
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-changeme}
+      N8N_SECURE_COOKIE: "false"
+      N8N_ALLOW_EXEC: "true"
+      EXECUTIONS_PROCESS: main
+    volumes:
+      - /opt/stacks/n8n/data:/home/node/.n8n
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Docker socket allows n8n workflows to control containers
+      # Remove if you don't need Docker control from n8n
