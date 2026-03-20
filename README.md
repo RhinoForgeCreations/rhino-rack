@@ -1,6 +1,6 @@
 # RHINO RACK
 
-> Self-hosted homelab NAS and media server built on a Raspberry Pi 4B, rack-mounted in a [KWS Rack v.2 by Makerlab](https://makerlab.com.au), running a full Docker stack with a custom kiosk dashboard, real-time system monitoring, and AI assistant integration.
+> Self-hosted homelab NAS and media server built on a Raspberry Pi 4B, rack-mounted in a [KWS Rack v.2 by MakerWorld](https://makerworld.com/en/models/2139130-kws-rack-v-2-heavy-duty-10-inch-homelab-rack), running a full Docker stack with a custom kiosk dashboard, real-time system monitoring, and AI assistant integration.
 
 ---
 
@@ -8,7 +8,7 @@
 
 RHINO RACK is a full-featured homelab server project combining:
 
-- **Raspberry Pi 4B** as the server, mounted in a **KWS Rack v.2** 3D-printed desktop rack from [Makerlab](https://makerlab.com.au)
+- **Raspberry Pi 4B** as the server, mounted in a **KWS Rack v.2** 3D-printed desktop rack from [MakerWorld](https://makerworld.com/en/models/2139130-kws-rack-v-2-heavy-duty-10-inch-homelab-rack)
 - **OpenMediaVault** for NAS management and storage administration
 - **14 Docker containers** across 9 stacks (media, monitoring, automation, networking)
 - A **custom 1600×600 kiosk dashboard** displayed on a dedicated HDMI screen
@@ -23,13 +23,13 @@ RHINO RACK is a full-featured homelab server project combining:
 | Component | Details |
 |-----------|---------|
 | **Server** | Raspberry Pi 4B (8GB RAM) |
-| **Rack** | [KWS Rack v.2 — Makerlab](https://makerlab.com.au) (3D-printed desktop rack) |
+| **Rack** | [KWS Rack v.2 — MakerWorld](https://makerworld.com/en/models/2139130-kws-rack-v-2-heavy-duty-10-inch-homelab-rack) (3D-printed 10" homelab rack) |
 | **Storage** | Samsung Portable SSD T7 1TB (USB 3.2, exFAT) |
 | **OS Drive** | MicroSD 64GB (Debian Bookworm root) |
 | **Display** | 1600×600 HDMI panel (kiosk mode) |
 | **Network** | Ethernet (Gigabit), Tailscale VPN for remote access |
 
-The KWS Rack v.2 is a compact 3D-printed desktop server rack from Makerlab that neatly houses the Pi, drives, and accessories in a professional rack form factor — perfect for a homelab build.
+The KWS Rack v.2 is a compact 3D-printed 10" homelab rack available on MakerWorld that neatly houses the Pi, drives, and accessories in a professional rack form factor — perfect for a homelab build.
 
 ---
 
