@@ -1,0 +1,16 @@
+services:
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    network_mode: host
+    # host network required so Pi-hole can intercept DNS on port 53
+    environment:
+      TZ: ${TZ:-UTC}
+      WEBPASSWORD: ${PIHOLE_PASSWORD}
+      PIHOLE_DNS_1: 1.1.1.1
+      PIHOLE_DNS_2: 8.8.8.8
+      WEB_PORT: 8053
+    volumes:
+      - /opt/stacks/pihole/etc-pihole:/etc/pihole
+      - /opt/stacks/pihole/etc-dnsmasq.d:/etc/dnsmasq.d

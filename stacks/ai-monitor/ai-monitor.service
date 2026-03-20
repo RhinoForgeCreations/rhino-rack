@@ -1,0 +1,16 @@
+[Unit]
+Description=AI Monitor Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/opt/stacks/ai-monitor
+EnvironmentFile=/opt/stacks/ai-monitor/.env
+ExecStart=/usr/bin/node /opt/stacks/ai-monitor/server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

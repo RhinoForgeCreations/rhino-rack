@@ -1,0 +1,21 @@
+# Environment files with credentials
+.env
+**/.env
+!**/.env.example
+
+# Activity log (can be large)
+stacks/ai-monitor/activity.log
+
+# Node modules
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Immich database backups
+stacks/immich/backups/
+
+# Pi-hole databases
+stacks/pihole/etc-pihole/*.db
+stacks/pihole/etc-pihole/backups/

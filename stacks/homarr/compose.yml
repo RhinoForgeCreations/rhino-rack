@@ -1,0 +1,19 @@
+services:
+  homarr:
+    image: ghcr.io/ajnart/homarr:latest
+    container_name: homarr
+    restart: unless-stopped
+    ports:
+      - "7575:7575"
+    environment:
+      HOSTNAME: "0.0.0.0"
+      # IMPORTANT: This env var is required. Without it, Next.js binds to
+      # the container's internal IP and becomes unreachable from the host.
+    volumes:
+      - /opt/stacks/homarr/configs:/app/data/configs
+      - /opt/stacks/homarr/icons:/app/public/icons
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7575"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
