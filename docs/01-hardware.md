@@ -7,7 +7,7 @@
 The heart of the build. 8GB RAM is recommended for running 14+ containers comfortably. The Pi draws ~5–7W at idle — an always-on server that barely shows up on your power bill.
 
 ### Rack
-**KWS Rack v.2 by Makerlab** — [makerlab.com.au](https://makerlab.com.au)
+**KWS Rack v.2** — [MakerWorld](https://makerworld.com/en/models/2139130-kws-rack-v-2-heavy-duty-10-inch-homelab-rack) (Heavy Duty 10" Homelab Rack)
 
 A compact, 3D-printed desktop rack designed to house a Raspberry Pi along with drives, switches, and accessories in a proper rack form factor. This gives RHINO RACK a professional, lab-grade aesthetic on your desk without the footprint of a full 19" rack.
 
@@ -17,7 +17,7 @@ The KWS Rack v.2 accommodates:
 - Small networking gear (switch, patch panel)
 - Cable management built into the frame
 
-If you're replicating this project, the KWS Rack v.2 from Makerlab is highly recommended — it makes the build look intentional rather than a pile of cables and breadboards.
+If you're replicating this project, the KWS Rack v.2 from MakerWorld is highly recommended — it makes the build look intentional rather than a pile of cables and breadboards.
 
 ### Storage
 
@@ -41,7 +41,7 @@ A **1600×600** HDMI panel mounted in the rack face. This unusual resolution giv
 
 ## Physical Assembly
 
-1. Mount the Pi in the KWS Rack v.2 using M2.5 standoffs (included or available from Makerlab)
+1. Mount the Pi in the KWS Rack v.2 using M2.5 standoffs
 2. Connect the SSD via USB 3.0 (blue port) for maximum throughput
 3. Run the HDMI cable to your display panel
 4. Route Ethernet from your router/switch to the Pi
