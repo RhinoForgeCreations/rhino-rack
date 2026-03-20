@@ -17,7 +17,7 @@ The KWS Rack v.2 accommodates:
 - Small networking gear (switch, patch panel)
 - Cable management built into the frame
 
-If you're replicating this project, the KWS Rack v.2 from MakerWorld is highly recommended — it makes the build look intentional rather than a pile of cables and breadboards.
+If you're replicating this project, the KWS Rack v.2 on MakerWorld is highly recommended — it makes the build look intentional rather than a pile of cables and breadboards.
 
 ### Storage
 

@@ -1,6 +1,6 @@
 # RHINO RACK
 
-> Self-hosted homelab NAS and media server built on a Raspberry Pi 4B, rack-mounted in a [KWS Rack v.2 by MakerWorld](https://makerworld.com/en/models/2139130-kws-rack-v-2-heavy-duty-10-inch-homelab-rack), running a full Docker stack with a custom kiosk dashboard, real-time system monitoring, and AI assistant integration.
+> Self-hosted homelab NAS and media server built on a Raspberry Pi 4B, rack-mounted in a [KWS Rack v.2 on MakerWorld](https://makerworld.com/en/models/2139130-kws-rack-v-2-heavy-duty-10-inch-homelab-rack), running a full Docker stack with a custom kiosk dashboard, real-time system monitoring, and AI assistant integration.
 
 ---
 
@@ -23,7 +23,7 @@ RHINO RACK is a full-featured homelab server project combining:
 | Component | Details |
 |-----------|---------|
 | **Server** | Raspberry Pi 4B (8GB RAM) |
-| **Rack** | [KWS Rack v.2 — MakerWorld](https://makerworld.com/en/models/2139130-kws-rack-v-2-heavy-duty-10-inch-homelab-rack) (3D-printed 10" homelab rack) |
+| **Rack** | [KWS Rack v.2](https://makerworld.com/en/models/2139130-kws-rack-v-2-heavy-duty-10-inch-homelab-rack) (3D-printed 10" homelab rack, on MakerWorld) |
 | **Storage** | Samsung Portable SSD T7 1TB (USB 3.2, exFAT) |
 | **OS Drive** | MicroSD 64GB (Debian Bookworm root) |
 | **Display** | 1600×600 HDMI panel (kiosk mode) |
