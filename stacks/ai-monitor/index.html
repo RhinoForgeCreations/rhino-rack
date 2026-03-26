@@ -179,6 +179,28 @@ html, body {
 .rack-msg.active .rack-msg-who { color: #38bdf8; }
 .rack-msg-text { font-size: 12px; color: rgba(255,255,255,.7); line-height: 1.35; }
 .rack-msg.active .rack-msg-text { color: #e2e8f0; }
+
+/* === RACKMODULE1 section === */
+.m1-host-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-shrink: 0; }
+.m1-dot { width: 9px; height: 9px; border-radius: 50%; background: #94a3b8; flex-shrink: 0; }
+.m1-dot.online { background: #22c55e; box-shadow: 0 0 8px #22c55e; animation: pulse 2s ease-in-out infinite; }
+.m1-dot.offline { background: #ef4444; }
+.m1-name { font-size: 18px; font-weight: 900; color: #f1f5f9; letter-spacing: .02em; }
+.m1-sub { margin-left: auto; font-size: 11px; color: rgba(255,255,255,.4); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); padding: 2px 9px; border-radius: 99px; }
+.m1-gauges-row { display: flex; gap: 2px; flex-shrink: 0; margin-bottom: 5px; }
+.m1-gauge-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; }
+.m1g-svg { width: 84px; height: 84px; overflow: visible; }
+.m1g-track { fill: none; stroke: #0d1f38; stroke-width: 9; }
+.m1g-fill { fill: none; stroke-width: 9; stroke-linecap: round; transition: stroke-dasharray .7s ease, stroke .4s ease; transform: rotate(-90deg); transform-origin: 42px 42px; }
+.m1g-val { font-size: 18px; font-weight: 900; fill: #f1f5f9; text-anchor: middle; dominant-baseline: middle; }
+.m1g-lbl { font-size: 9px; font-weight: 700; fill: rgba(255,255,255,.35); text-anchor: middle; letter-spacing:.12em; text-transform: uppercase; }
+.m1-disk-row { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+.m1-disk-top { display: flex; align-items: baseline; gap: 6px; }
+.m1-disk-name { font-size: 12px; font-weight: 800; color: #f1f5f9; }
+.m1-disk-size { font-size: 11px; color: rgba(255,255,255,.4); margin-left: auto; }
+.m1-disk-pct { font-weight: 700; color: #94a3b8; font-size: 11px; }
+.m1-disk-bar { height: 6px; background: rgba(255,255,255,.08); border-radius: 4px; overflow: hidden; }
+.m1-disk-fill { height: 100%; border-radius: 4px; transition: width .7s ease; background: #a855f7; }
 </style>
 </head>
 <body>
@@ -318,6 +340,49 @@ html, body {
     </div>
   </div>
   <div class="uptime-row">up <span id="uptime-val">—</span></div>
+  <div class="hr" style="margin-top:5px"></div>
+  <div id="m1-section" style="flex-shrink:0">
+    <div class="m1-host-row">
+      <div class="m1-dot" id="m1-dot"></div>
+      <div class="m1-name">RACKMODULE1</div>
+      <div class="m1-sub" id="m1-sub">192.168.1.110</div>
+    </div>
+    <div class="m1-gauges-row">
+      <div class="m1-gauge-wrap">
+        <svg class="m1g-svg" viewBox="0 0 84 84">
+          <circle class="m1g-track" cx="42" cy="42" r="34"/>
+          <circle class="m1g-fill" id="m1gf-cpu" cx="42" cy="42" r="34" stroke="#3b82f6" stroke-dasharray="0 213.63"/>
+          <text class="m1g-val" id="m1-cpu" x="42" y="39">—</text>
+          <text class="m1g-lbl" x="42" y="54">CPU</text>
+        </svg>
+      </div>
+      <div class="m1-gauge-wrap">
+        <svg class="m1g-svg" viewBox="0 0 84 84">
+          <circle class="m1g-track" cx="42" cy="42" r="34"/>
+          <circle class="m1g-fill" id="m1gf-ram" cx="42" cy="42" r="34" stroke="#22c55e" stroke-dasharray="0 213.63"/>
+          <text class="m1g-val" id="m1-ram" x="42" y="39">—</text>
+          <text class="m1g-lbl" x="42" y="54">RAM</text>
+        </svg>
+      </div>
+      <div class="m1-gauge-wrap">
+        <svg class="m1g-svg" viewBox="0 0 84 84">
+          <circle class="m1g-track" cx="42" cy="42" r="34"/>
+          <circle class="m1g-fill" id="m1gf-temp" cx="42" cy="42" r="34" stroke="#22c55e" stroke-dasharray="0 213.63"/>
+          <text class="m1g-val" id="m1-temp" x="42" y="39">—</text>
+          <text class="m1g-lbl" x="42" y="54">TEMP °C</text>
+        </svg>
+      </div>
+    </div>
+    <div class="m1-disk-row">
+      <div class="m1-disk-top">
+        <span class="m1-disk-name">SD Card</span>
+        <span class="m1-disk-size" id="m1-disk-size">—</span>
+        <span class="m1-disk-pct" id="m1-disk-pct">—</span>
+      </div>
+      <div class="m1-disk-bar"><div class="m1-disk-fill" id="m1-disk-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ═══════════════ CENTRE: Docker ═══════════════ -->
@@ -599,8 +664,6 @@ function renderStorage(sdcard, drives) {
       <div class="stor-bottom" style="color:rgba(255,255,255,.3)"><span>${ssd.model||'T7'} · ${ssd.sizeGB}GB</span><span>—</span></div>
       ${storBar(0,'cg')}
     </div>`;
-  } else {
-    h += `<div class="stor-slot">${ICO_SSD}<span>SSD — not detected</span></div>`;
   }
 
   const hddNames=['sdb','sdc','sdd','sde'], hddCols=['cp','cc','cy','co'];
@@ -619,8 +682,6 @@ function renderStorage(sdcard, drives) {
         <div class="stor-bottom" style="color:rgba(255,255,255,.3)"><span>${d.model||d.name}</span><span>—</span></div>
         ${storBar(0,hddCols[i])}
       </div>`;
-    } else {
-      h += `<div class="stor-slot">${ICO_HDD}<span>HDD ${i+1} — empty slot</span></div>`;
     }
   }
   document.getElementById('stor-list').innerHTML = h;
@@ -784,9 +845,67 @@ function connectSSE() {
   es.onerror = () => { es.close(); setTimeout(connectSSE, 5000); };
 }
 
+
+// === RackModule1 stats ===
+const M1_CIRC = 2 * Math.PI * 34; // r=34 => 213.63
+function setM1Gauge(id, pct, color) {
+  const fill = Math.min(Math.max(pct,0),100) / 100 * M1_CIRC;
+  const el = document.getElementById('m1gf-' + id);
+  if (!el) return;
+  el.setAttribute('stroke-dasharray', fill.toFixed(2) + ' ' + M1_CIRC.toFixed(2));
+  el.setAttribute('stroke', color);
+}
+
+async function updateModule1Stats() {
+  try {
+    const d = await fetch('/api/module1-stats').then(r=>r.json());
+    const dot = document.getElementById('m1-dot');
+    const sub = document.getElementById('m1-sub');
+    if (!d.online) {
+      dot.className = 'm1-dot offline';
+      sub.textContent = 'OFFLINE';
+      ['cpu','ram','temp'].forEach(k => {
+        const el = document.getElementById('m1-' + k); if(el) el.textContent = '—';
+        setM1Gauge(k, 0, '#1e3a5f');
+      });
+      return;
+    }
+    dot.className = 'm1-dot online';
+    sub.textContent = '192.168.1.110';
+
+    const cpu = parseFloat(d.cpu)||0;
+    document.getElementById('m1-cpu').textContent = cpu.toFixed(0)+'%';
+    setM1Gauge('cpu', cpu, cpu>=90?'#ef4444':cpu>=70?'#f59e0b':'#3b82f6');
+
+    const rp = d.mem && d.mem.total ? Math.round(d.mem.used/d.mem.total*100) : 0;
+    document.getElementById('m1-ram').textContent = rp+'%';
+    setM1Gauge('ram', rp, rp>=90?'#ef4444':rp>=75?'#f59e0b':'#22c55e');
+
+    if (d.temp) {
+      const t = parseFloat(d.temp)||0;
+      document.getElementById('m1-temp').textContent = t.toFixed(0)+'°';
+      setM1Gauge('temp', t/85*100, t>=75?'#ef4444':t>=60?'#f59e0b':'#22c55e');
+    }
+
+    if (d.disk && d.disk.pct !== null) {
+      const dp = d.disk.pct;
+      const sz = d.disk.usedGB && d.disk.totalGB ? d.disk.usedGB+'G / '+d.disk.totalGB+'G' : '';
+      document.getElementById('m1-disk-size').textContent = sz;
+      document.getElementById('m1-disk-pct').textContent = dp+'%';
+      const fill = document.getElementById('m1-disk-fill');
+      fill.style.width = dp+'%';
+      fill.style.background = dp>=85?'#ef4444':dp>=70?'#f59e0b':'#a855f7';
+    }
+  } catch(e) {
+    const dot = document.getElementById('m1-dot');
+    if (dot) dot.className = 'm1-dot offline';
+  }
+}
+
 // ═══ Boot ═══
 tick(); setInterval(tick,1000);
 updateStats(); setInterval(updateStats,3000);
+updateModule1Stats(); setInterval(updateModule1Stats,5000);
 connectSSE();
 </script>
 </body>

@@ -3,15 +3,8 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = process.env.PORT || 3005;
+const PORT = 3005;
 const ACTIVITY_LOG = path.join(__dirname, 'activity.log');
-
-// --- Credentials (set via environment variables or .env) ---
-const PIHOLE_PASS = process.env.PIHOLE_PASS || '';
-const PIHOLE_TOTP_SECRET = process.env.PIHOLE_TOTP_SECRET || '';
-const PIHOLE_HOST = process.env.PIHOLE_HOST || '127.0.0.1';
-const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN || '';
-const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID || '';
 
 function run(cmd) {
   return new Promise((resolve) => {
@@ -25,6 +18,11 @@ function run(cmd) {
 let _lastStat = null;
 const _cpuHistory = [];
 const CPU_SMOOTH = 5; // average over last 5 samples (~15s at 3s poll)
+
+// --- RackModule1 metrics (fetched from node_exporter at 192.168.1.110:9100) ---
+let _m1LastCpu = null;
+const _m1CpuHistory = [];
+
 
 function readProcStat() {
   try {
@@ -57,9 +55,11 @@ function getCpuUsage() {
 // --- Pi-hole stats (cached, refreshed every 30s) ---
 let _piholeCache = null;
 let _piholeCacheTime = 0;
+const PIHOLE_PASS = process.env.PIHOLE_PASS || '';
+const PIHOLE_TOTP_SECRET = process.env.PIHOLE_TOTP_SECRET || '';
+const https_mod = require('https');
 
 function getPiholeTotp() {
-  if (!PIHOLE_TOTP_SECRET) return null;
   const base32chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   const secret = Buffer.alloc(Math.floor(PIHOLE_TOTP_SECRET.length * 5 / 8));
   let bits = 0, val = 0, idx = 0;
@@ -80,13 +80,11 @@ function getPiholeTotp() {
 }
 
 async function getPiholeStats() {
-  if (!PIHOLE_PASS) return null;
   if (_piholeCache && Date.now() - _piholeCacheTime < 30000) return _piholeCache;
   try {
-    const totp = getPiholeTotp();
-    const authBody = JSON.stringify({ password: PIHOLE_PASS, ...(totp !== null ? { totp } : {}) });
+    const authBody = JSON.stringify({ password: PIHOLE_PASS, totp: getPiholeTotp() });
     const authResp = await new Promise((resolve, reject) => {
-      const req = http.request({ host: PIHOLE_HOST, port: 80, path: '/api/auth', method: 'POST',
+      const req = http.request({ host: '192.168.1.109', port: 80, path: '/api/auth', method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(authBody) }
       }, res => { let d = ''; res.on('data', c => d += c); res.on('end', () => resolve(JSON.parse(d))); });
       req.on('error', reject); req.write(authBody); req.end();
@@ -94,7 +92,7 @@ async function getPiholeStats() {
     const sid = authResp?.session?.sid;
     if (!sid) return null;
     const stats = await new Promise((resolve, reject) => {
-      const req = http.request({ host: PIHOLE_HOST, port: 80, path: '/api/stats/summary', method: 'GET',
+      const req = http.request({ host: '192.168.1.109', port: 80, path: '/api/stats/summary', method: 'GET',
         headers: { 'sid': sid }
       }, res => { let d = ''; res.on('data', c => d += c); res.on('end', () => resolve(JSON.parse(d))); });
       req.on('error', reject); req.end();
@@ -110,6 +108,66 @@ async function getPiholeStats() {
     _piholeCacheTime = Date.now();
     return _piholeCache;
   } catch (_) { return _piholeCache; }
+}
+
+async function getModule1Stats() {
+  return new Promise((resolve) => {
+    const req = http.get({ host: '192.168.1.110', port: 9100, path: '/metrics', timeout: 4000 }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try {
+          let idle = 0, total = 0;
+          for (const line of data.split('\n')) {
+            if (!line.startsWith('node_cpu_seconds_total')) continue;
+            const modeM = line.match(/mode="(\w+)"/);
+            const valM  = line.match(/}\s+([\d.]+)/);
+            if (!modeM || !valM) continue;
+            const v = parseFloat(valM[1]);
+            total += v;
+            if (modeM[1] === 'idle') idle += v;
+          }
+          let cpuPct = null;
+          if (_m1LastCpu) {
+            const dIdle  = idle  - _m1LastCpu.idle;
+            const dTotal = total - _m1LastCpu.total;
+            if (dTotal > 0) {
+              const s = 100 * (1 - dIdle / dTotal);
+              _m1CpuHistory.push(s);
+              if (_m1CpuHistory.length > 5) _m1CpuHistory.shift();
+            }
+          }
+          _m1LastCpu = { idle, total };
+          if (_m1CpuHistory.length) {
+            cpuPct = (_m1CpuHistory.reduce((a,b)=>a+b,0) / _m1CpuHistory.length).toFixed(1);
+          }
+          const memTotalB  = parseFloat((data.match(/^node_memory_MemTotal_bytes ([\d.e+]+)/m) || [])[1] || 0);
+          const memAvailB  = parseFloat((data.match(/^node_memory_MemAvailable_bytes ([\d.e+]+)/m) || [])[1] || 0);
+          const memUsedMB  = Math.round((memTotalB - memAvailB) / 1048576);
+          const memTotalMB = Math.round(memTotalB / 1048576);
+          const tempM = data.match(/node_thermal_zone_temp\{[^}]*\}\s+([\d.]+)/);
+          const tempC = tempM ? parseFloat(tempM[1]).toFixed(1) : null;
+          let diskSize = 0, diskAvail = 0;
+          for (const line of data.split('\n')) {
+            if (!line.startsWith('node_filesystem_size_bytes') && !line.startsWith('node_filesystem_avail_bytes')) continue;
+            const mpM = line.match(/mountpoint="([^"]+)"/);
+            if (!mpM || mpM[1] !== '/') continue;
+            const v = parseFloat(line.split(' ').pop());
+            if (line.startsWith('node_filesystem_size_bytes'))  diskSize  = v;
+            if (line.startsWith('node_filesystem_avail_bytes')) diskAvail = v;
+          }
+          const diskUsedGB  = diskSize > 0 ? ((diskSize - diskAvail) / 1e9).toFixed(1) : null;
+          const diskTotalGB = diskSize > 0 ? (diskSize / 1e9).toFixed(1) : null;
+          const diskPct     = diskSize > 0 ? Math.round((diskSize - diskAvail) / diskSize * 100) : null;
+          resolve({ online: true, cpu: cpuPct, mem: { used: memUsedMB, total: memTotalMB },
+            temp: tempC, disk: { usedGB: diskUsedGB, totalGB: diskTotalGB, pct: diskPct },
+            timestamp: new Date().toISOString() });
+        } catch(e) { resolve({ online: false }); }
+      });
+    });
+    req.on('error', () => resolve({ online: false }));
+    req.on('timeout', () => { req.destroy(); resolve({ online: false }); });
+  });
 }
 
 async function gatherStats() {
@@ -278,6 +336,47 @@ function getRecentActivity(n = 60) {
 // --- Static HTML ---
 const HTML = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 
+// --- Agent results ---
+global.agentResults = [
+  {
+    id: 'wifi-rater', name: 'WiFi Signal Rater', icon: '📶', status: 'completed',
+    rating: 'N/A', ratingColor: '#f59e0b',
+    summary: 'wlan0 is DOWN — not associated to any network',
+    details: [
+      { label: 'Interface', value: 'wlan0 (DOWN)' },
+      { label: 'Last Channel', value: 'Ch 34 / 5170 MHz (5GHz)' },
+      { label: 'Active Link', value: 'Ethernet (end0) in use' },
+    ],
+    recommendation: 'Device runs on Ethernet. WiFi disabled.',
+    completedAt: new Date().toISOString(),
+  },
+  {
+    id: 'perf-tester', name: 'Performance Tester', icon: '⚡', status: 'completed',
+    rating: 'GOOD', ratingColor: '#22c55e',
+    summary: '122.7 Mbps down · 5.13 Mbps up · 0% packet loss',
+    details: [
+      { label: 'Download', value: '122.70 Mbps' },
+      { label: 'Upload', value: '5.13 Mbps' },
+      { label: 'Gateway Latency', value: '0.35 ms avg' },
+      { label: 'Packet Loss', value: '0%' },
+    ],
+    recommendation: 'Upload asymmetry is ISP-imposed. Minor DNS jitter suggests bufferbloat.',
+    completedAt: new Date().toISOString(),
+  },
+  {
+    id: 'security-auditor', name: 'Security Auditor', icon: '🔒', status: 'completed',
+    rating: 'LOW RISK', ratingColor: '#22c55e',
+    summary: 'Private homelab · Tailscale only external exposure',
+    details: [
+      { label: 'External Exposure', value: 'Tailscale only (WireGuard)' },
+      { label: 'LAN', value: 'Private · trusted devices only' },
+      { label: 'rpcbind (111)', value: 'Running — optional to disable' },
+    ],
+    recommendation: 'Tailscale is your only real external surface. Optionally disable rpcbind.',
+    completedAt: new Date().toISOString(),
+  },
+];
+
 const server = http.createServer(async (req, res) => {
   if (req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -290,6 +389,17 @@ const server = http.createServer(async (req, res) => {
     } catch (e) {
       res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
     }
+  } else if (req.url === '/api/module1-stats') {
+    getModule1Stats().then(s => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(s));
+    }).catch(() => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ online: false }));
+    });
+  } else if (req.url === '/api/agents') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(global.agentResults));
   } else if (req.url === '/api/activity') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getRecentActivity()));
@@ -299,7 +409,6 @@ const server = http.createServer(async (req, res) => {
     req.on('data', d => body += d);
     req.on('end', () => {
       res.writeHead(200); res.end('ok');
-      if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) return;
       try {
         const payload = JSON.parse(body);
         const msg = payload.message || payload.text || JSON.stringify(payload).slice(0, 400);
@@ -308,10 +417,10 @@ const server = http.createServer(async (req, res) => {
         const data = JSON.stringify({ content: content.slice(0, 2000) });
         const opts = {
           hostname: 'discord.com',
-          path: `/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`,
+          path: '/api/v10/channels/900016926963691623/messages',
           method: 'POST',
           headers: {
-            'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+            'Authorization': 'Bot ' + (process.env.DISCORD_BOT_TOKEN || ''),
             'Content-Type': 'application/json',
             'User-Agent': 'DiscordBot (https://github.com/discord/discord-api-docs, 10)',
             'Content-Length': Buffer.byteLength(data),
@@ -343,5 +452,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`AI Monitor running at http://0.0.0.0:${PORT}`);
+  console.log(`Claude Monitor running at http://0.0.0.0:${PORT}`);
 });
