@@ -226,6 +226,76 @@ This project covers a broad range of infrastructure and software engineering ski
 
 ---
 
+## Scaling: Kubernetes Option
+
+The current setup runs Docker Compose on a single node (RPi 4B). With the addition of **RackModule1** (RPi 3B at 192.168.1.110), the rack now has two nodes — enough to run a lightweight Kubernetes cluster.
+
+### Why K3s instead of full Kubernetes
+
+Full Kubernetes is too heavy for Raspberry Pi hardware. [**K3s**](https://k3s.io/) is a certified, production-grade Kubernetes distribution built for exactly this — ARM devices, low RAM, edge deployments. It runs the full Kubernetes API in a single ~70MB binary.
+
+### What the cluster would look like
+
+```
+┌─────────────────────────────────────────────┐
+│              RHINO RACK CLUSTER             │
+├─────────────────────┬───────────────────────┤
+│  pinas (RPi 4B)     │  RackModule1 (RPi 3B) │
+│  192.168.1.109      │  192.168.1.110        │
+│  8GB RAM            │  1GB RAM              │
+│  K3s Control Plane  │  K3s Worker Node      │
+│  + Worker           │                       │
+└─────────────────────┴───────────────────────┘
+```
+
+### How to migrate
+
+**1. Install K3s on pinas (control plane)**
+```bash
+curl -sfL https://get.k3s.io | sh -
+# Get the join token
+sudo cat /var/lib/rancher/k3s/server/node-token
+```
+
+**2. Join RackModule1 as a worker**
+```bash
+curl -sfL https://get.k3s.io | K3S_URL=https://192.168.1.109:6443 \
+  K3S_TOKEN=<token-from-above> sh -
+```
+
+**3. Verify both nodes are ready**
+```bash
+sudo kubectl get nodes
+# NAME          STATUS   ROLES                  AGE
+# pinas         Ready    control-plane,master   1m
+# rackmodule1   Ready    <none>                 30s
+```
+
+**4. Deploy stacks as Kubernetes manifests**
+
+Each Docker Compose stack can be converted to a Kubernetes Deployment + Service. Tools like [`kompose`](https://kompose.io/) can automate the conversion:
+```bash
+kompose convert -f stacks/monitoring/docker-compose.yml
+kubectl apply -f .
+```
+
+### Trade-offs
+
+| | Docker Compose (current) | K3s Kubernetes |
+|---|---|---|
+| Complexity | Low | Medium |
+| Resource overhead | Minimal | ~512MB extra RAM for K3s |
+| Multi-node scheduling | Manual | Automatic |
+| Self-healing | No | Yes (pod restarts, rescheduling) |
+| Rolling updates | Manual | Built-in |
+| Best for | Single node, simple setup | 2+ nodes, production-grade |
+
+### Recommendation
+
+For this rack's current scale (2 nodes, homelab use), Docker Compose is the right call — simpler to maintain and debug. K3s becomes worth it if you add a third node or want automatic failover between pinas and RackModule1.
+
+---
+
 ## License
 
 MIT
