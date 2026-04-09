@@ -1,6 +1,6 @@
 # RHINO RACK
 
-> Self-hosted homelab NAS and media server built on a Raspberry Pi 4B, rack-mounted in a [KWS Rack v.2 on MakerWorld](https://makerworld.com/en/models/2139130-kws-rack-v-2-heavy-duty-10-inch-homelab-rack), running a full Docker stack with a custom kiosk dashboard, real-time system monitoring, and AI assistant integration.
+> Self-hosted homelab NAS and media server built on a Raspberry Pi 4B, rack-mounted in a [KWS Rack v.2 on MakerWorld](https://makerworld.com/en/models/2139130-kws-rack-v-2-heavy-duty-10-inch-homelab-rack), running a full Docker stack with a custom kiosk dashboard, real-time system monitoring, and automation hooks.
 
 ---
 
@@ -14,7 +14,7 @@ RHINO RACK is a full-featured homelab server project combining:
 - A **custom 1600×600 kiosk dashboard** displayed on a dedicated HDMI screen
 - **Real-time system monitoring** with Prometheus + Grafana + a custom Node.js stats server
 - **Discord bot integration** for notifications and a remote approval gate for dangerous commands
-- **AI assistant hooks** — live activity feed, animated JARVIS HUD, and Discord-based command authorization
+- **Automation hooks** — live activity feed, animated JARVIS HUD, and Discord-based command authorization
 
 ---
 
@@ -46,9 +46,9 @@ The KWS Rack v.2 is a compact 3D-printed 10" homelab rack available on MakerWorl
 │  Immich      │  Node Exporter :9100     │  Tailscale VPN        │
 │              │  Grafana :3000           │                       │
 ├──────────────┼──────────────────────────┼───────────────────────┤
-│  MANAGEMENT  │  AUTOMATION              │  AI INTEGRATION       │
+│  MANAGEMENT  │  AUTOMATION              │  AUTOMATION       │
 │  ─────────── │  ──────────────────────  │  ─────────────────── │
-│  Portainer   │  n8n :5678               │  AI Monitor :3005     │
+│  Portainer   │  n8n :5678               │  Activity Monitor :3005     │
 │  Homarr      │  Watchtower (auto-upd.)  │  Kiosk Dashboard      │
 │  Uptime Kuma │                          │  Discord Approval     │
 └──────────────┴──────────────────────────┴───────────────────────┘
@@ -83,16 +83,16 @@ The KWS Rack v.2 is a compact 3D-printed 10" homelab rack available on MakerWorl
 
 ### Docker Automation
 - Watchtower scans all containers nightly (4am), auto-cleans old images
-- Update reports forwarded from the AI Monitor webhook relay to Discord
+- Update reports forwarded from the Activity Monitor webhook relay to Discord
 
 ### Discord Integration
 - Bot posts Watchtower update reports to your server's #general channel
 - **Approval gate hook:** intercepts dangerous Bash commands (`rm -rf`, `dd`, `mkfs`, `fdisk`, `git reset --hard`, `docker prune`, etc.), sends a plain-English message to Discord, and waits up to 5 minutes for your `approve` / `deny` reply before proceeding
 
-### AI Assistant Integration
-- Claude Code hook system logs every tool execution (PreToolUse / PostToolUse) to a JSON activity log
+### Automation Hook Integration
+- Hook system logs every tool execution to a JSON activity log
 - SSE stream broadcasts live events to the dashboard
-- JARVIS HUD speeds up on AI activity, displays the last 5 actions in natural language
+- JARVIS HUD speeds up on hook activity, displays the last 5 actions in natural language
 
 ### Media & Photo Management
 - **Jellyfin** — self-hosted media server for movies and TV
@@ -146,7 +146,7 @@ cp .env.example .env      # fill in your values
 docker compose up -d
 ```
 
-### 3. Set up the AI Monitor
+### 3. Set up the Activity Monitor
 
 ```bash
 cd stacks/ai-monitor
@@ -169,7 +169,6 @@ sudo systemctl enable --now rack-kiosk
 
 ```bash
 cp hooks/.env.example hooks/.env    # fill in your bot token and channel ID
-# Add to your Claude Code settings.json:
 # See hooks/README.md for full setup
 ```
 
@@ -185,7 +184,7 @@ cp hooks/.env.example hooks/.env    # fill in your bot token and channel ID
 | [Kiosk Dashboard](./docs/04-kiosk-dashboard.md) | Chromium kiosk, systemd service, display config |
 | [Monitoring Stack](./docs/05-monitoring.md) | Prometheus, Node Exporter, Grafana dashboards |
 | [Discord Integration](./docs/06-discord-integration.md) | Bot setup, Watchtower relay, approval hook |
-| [AI Integration](./docs/07-ai-integration.md) | Claude Code hooks, activity log, JARVIS HUD |
+| [Automation Hooks](./docs/07-ai-integration.md) | Hook system, activity log, JARVIS HUD |
 
 ---
 
@@ -222,7 +221,7 @@ This project covers a broad range of infrastructure and software engineering ski
 - **Monitoring** — Prometheus metrics, Grafana dashboards, SMART drive health, custom alerting
 - **Automation** — n8n workflows, Watchtower, webhook relay pipelines
 - **Security** — Tailscale VPN, Pi-hole DNS filtering, Discord approval gate for destructive commands
-- **AI tooling** — Claude Code hook system, live activity streaming, approval workflows
+- **Automation hooks** — custom hook system, live activity streaming, approval workflows
 
 ---
 
